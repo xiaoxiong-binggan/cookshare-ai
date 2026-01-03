@@ -51,7 +51,7 @@ const App = () => {
   const [generating, setGenerating] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
-  const [viewCommunity, setViewCommunity] = useState(false);
+  const [viewCommunity, setViewCommunity] = useState(true); // ✅ 默认进入社区/首页
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my');
   const [userStats, setUserStats] = useState<UserStats>({
@@ -61,8 +61,9 @@ const App = () => {
     favorites: 0,
     recipes: []
   });
+  const [isPublishing, setIsPublishing] = useState(false); // ✅ 新增：是否在发布流程中
 
-  // ===== 新增：轮播图相关 =====
+  // ===== 轮播图相关 =====
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // ===== AI 视频播放逻辑 =====
@@ -185,20 +186,30 @@ const App = () => {
     }));
 
     alert('🎉 已成功分享到厨友圈！');
+    setIsPublishing(false);
     setViewCommunity(true);
     setSelectedRecipe(null);
   };
 
   const backToMain = () => {
-    setViewCommunity(false);
+    setIsPublishing(false);
+    setViewCommunity(true);
     setSelectedRecipe(null);
+    setIsPublished(false);
+    setVideoGenerated(false);
+    // 重置表单
+    setTitle('');
+    setDescription('');
+    setCoverImage(null);
+    setIngredients([{ name: '', amount: '', unit: 'g' }]);
+    setSteps([{ description: '', image: null }]);
   };
 
   const viewRecipeDetail = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     setCurrentStepIndex(0);
     setIsPlaying(false);
-    speechSynthesis.cancel(); // 停止可能正在播放的语音
+    speechSynthesis.cancel();
   };
 
   const likeRecipe = (id: string) => {
@@ -247,7 +258,6 @@ const App = () => {
     }
   };
 
-  // ===== 新增：自动播放 AI 视频逻辑 =====
   const startAutoPlay = () => {
     if (!selectedRecipe) return;
     setIsPlaying(true);
@@ -262,7 +272,6 @@ const App = () => {
 
       setCurrentStepIndex(index);
 
-      // 朗读当前步骤
       const step = selectedRecipe.steps[index];
       const utterance = new SpeechSynthesisUtterance(`第${index + 1}步：${step.description}`);
       utterance.lang = 'zh-CN';
@@ -270,7 +279,7 @@ const App = () => {
       utterance.onend = () => {
         index++;
         if (index < total) {
-          setTimeout(playNextStep, 1000); // 延迟1秒进入下一步
+          setTimeout(playNextStep, 1000);
         } else {
           setIsPlaying(false);
         }
@@ -286,7 +295,6 @@ const App = () => {
     speechSynthesis.cancel();
   };
 
-  // ===== 新增：删除作品 =====
   const deleteRecipe = (id: string) => {
     if (window.confirm('确定要删除这个菜谱吗？')) {
       const updated = sharedRecipes.filter(r => r.id !== id);
@@ -302,7 +310,7 @@ const App = () => {
     }
   };
 
-  // ===== 轮播图自动播放逻辑 =====
+  // 轮播图自动播放
   useEffect(() => {
     if (sharedRecipes.length > 0) {
       const interval = setInterval(() => {
@@ -312,7 +320,7 @@ const App = () => {
     }
   }, [sharedRecipes]);
 
-  // ===== 渲染轮播图 =====
+  // 渲染轮播图
   const renderCarousel = () => {
     if (sharedRecipes.length === 0) return null;
     return (
@@ -371,7 +379,7 @@ const App = () => {
     );
   };
 
-  // ===== 渲染首页底部按钮 =====
+  // 渲染首页底部按钮
   const renderHomeButtons = () => (
     <div style={{
       display: 'flex',
@@ -383,7 +391,10 @@ const App = () => {
       borderRadius: '8px',
     }}>
       <button
-        onClick={() => setCurrentTab('my')}
+        onClick={() => {
+          setCurrentTab('my');
+          setViewCommunity(true);
+        }}
         style={{
           padding: '0.75rem',
           background: currentTab === 'my' ? '#3b82f6' : '#e2e8f0',
@@ -396,7 +407,10 @@ const App = () => {
         我的厨友圈
       </button>
       <button
-        onClick={() => setCurrentTab('community')}
+        onClick={() => {
+          setCurrentTab('community');
+          setViewCommunity(true);
+        }}
         style={{
           padding: '0.75rem',
           background: currentTab === 'community' ? '#3b82f6' : '#e2e8f0',
@@ -409,7 +423,10 @@ const App = () => {
         厨友社区
       </button>
       <button
-        onClick={() => setViewCommunity(false)}
+        onClick={() => {
+          setIsPublishing(true);
+          setViewCommunity(false);
+        }}
         style={{
           padding: '0.75rem',
           background: '#3b82f6',
@@ -424,7 +441,7 @@ const App = () => {
     </div>
   );
 
-  // ===== 渲染我的主页 =====
+  // 渲染我的主页
   const renderMyPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -534,7 +551,7 @@ const App = () => {
     </div>
   );
 
-  // ===== 渲染社区页 =====
+  // 渲染社区页
   const renderCommunityPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -600,7 +617,7 @@ const App = () => {
     </div>
   );
 
-  // ===== 渲染菜谱详情页 =====
+  // 渲染菜谱详情页
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
 
@@ -652,7 +669,6 @@ const App = () => {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {/* 步骤内容展示 */}
           {selectedRecipe.steps.map((step, idx) => (
             <div
               key={idx}
@@ -688,7 +704,6 @@ const App = () => {
             </div>
           ))}
 
-          {/* 控制按钮 */}
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
             <button
               onClick={isPlaying ? stopAutoPlay : startAutoPlay}
@@ -814,28 +829,35 @@ const App = () => {
     );
   };
 
-  // ===== 渲染首页 =====
+  // 渲染首页（轮播图 + 按钮）
   const renderHomePage = () => (
     <div>
-      {/* 轮播图 */}
+      <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <h1>味享厨 CookShare</h1>
+        <p>发布菜谱，一键生成 AI 教学视频</p>
+      </header>
       {renderCarousel()}
-
-      {/* 底部按钮 */}
       {renderHomeButtons()}
+      <footer style={{ textAlign: 'center', marginTop: '3rem', color: '#64748b', fontSize: '0.9rem' }}>
+        <p>© 2026 味享厨 CookShare · 阿里云天池大赛参赛作品</p>
+        <p>GitHub: xiaoxiong-binggan / cookshare-ai</p>
+      </footer>
     </div>
   );
 
+  // 主渲染逻辑
   return (
     <div className="app-container">
-      {!viewCommunity ? (
+      {selectedRecipe ? (
+        renderRecipeDetail()
+      ) : isPublishing ? (
         <>
-          <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h1>味享厨 CookShare</h1>
-            <p>发布菜谱，一键生成 AI 教学视频</p>
-          </header>
-
           {!isPublished ? (
             <form>
+              <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <h1>味享厨 CookShare</h1>
+                <p>发布菜谱，一键生成 AI 教学视频</p>
+              </header>
               <div className="form-group">
                 <label>菜谱标题 *</label>
                 <input
@@ -959,9 +981,30 @@ const App = () => {
               >
                 📤 发布菜谱
               </button>
+
+              <button
+                type="button"
+                onClick={backToMain}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#f1f5f9',
+                  color: '#334155',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  marginTop: '1rem'
+                }}
+              >
+                ← 返回主页
+              </button>
             </form>
           ) : (
             <div>
+              <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <h1>味享厨 CookShare</h1>
+                <p>发布菜谱，一键生成 AI 教学视频</p>
+              </header>
               <h2>✅ 菜谱已发布！</h2>
               <p>现在可以生成你的专属 AI 教学视频了。</p>
 
@@ -986,7 +1029,7 @@ const App = () => {
               </button>
 
               {videoGenerated && (
-                <div className="video-result">
+                <div className="video-result" style={{ marginTop: '1.5rem' }}>
                   <h3>🎉 视频已生成！</h3>
                   <p><strong>视频风格：</strong>动漫风</p>
                   <p><strong>时长：</strong>1分23秒</p>
@@ -1007,20 +1050,32 @@ const App = () => {
                   </div>
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={backToMain}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#f1f5f9',
+                  color: '#334155',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  marginTop: '2rem'
+                }}
+              >
+                ← 返回主页
+              </button>
             </div>
           )}
-
-          <footer style={{ textAlign: 'center', marginTop: '3rem', color: '#64748b', fontSize: '0.9rem' }}>
-            <p>© 2026 味享厨 CookShare · 阿里云天池大赛参赛作品</p>
-            <p>GitHub: xiaoxiong-binggan / cookshare-ai</p>
-          </footer>
         </>
-      ) : selectedRecipe ? (
-        renderRecipeDetail()
-      ) : (
+      ) : viewCommunity ? (
         <div>
           {currentTab === 'my' ? renderMyPage() : renderCommunityPage()}
         </div>
+      ) : (
+        renderHomePage()
       )}
     </div>
   );
