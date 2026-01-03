@@ -45,7 +45,7 @@ const App = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [ingredientss, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
   const [steps, setSteps] = useState<Step[]>([{ description: '', image: null }]);
   const [isPublished, setIsPublished] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -53,7 +53,7 @@ const App = () => {
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
   const [viewCommunity, setViewCommunity] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my'); // 我的 / 社区
+  const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my');
   const [userStats, setUserStats] = useState<UserStats>({
     followers: 0,
     following: 0,
@@ -61,6 +61,10 @@ const App = () => {
     favorites: 0,
     recipes: []
   });
+
+  // ===== 新增状态：用于模拟视频播放 =====
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // 加载本地数据
   useEffect(() => {
@@ -189,6 +193,9 @@ const App = () => {
 
   const viewRecipeDetail = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
+    setCurrentStepIndex(0);
+    setIsPlaying(false);
+    speechSynthesis.cancel(); // 停止可能正在播放的语音
   };
 
   const likeRecipe = (id: string) => {
@@ -235,6 +242,40 @@ const App = () => {
     if (selectedRecipe && selectedRecipe.id === id) {
       setSelectedRecipe({ ...selectedRecipe, comments: [...selectedRecipe.comments, comment] });
     }
+  };
+
+  // ===== 新增：自动播放 AI 视频逻辑 =====
+  const startAutoPlay = () => {
+    if (!selectedRecipe) return;
+    setIsPlaying(true);
+    let index = 0;
+    const total = selectedRecipe.steps.length;
+
+    const playNextStep = () => {
+      if (index >= total || !isPlaying) {
+        setIsPlaying(false);
+        return;
+      }
+
+      setCurrentStepIndex(index);
+
+      // 朗读当前步骤
+      const step = selectedRecipe.steps[index];
+      const utterance = new SpeechSynthesisUtterance(`第${index + 1}步：${step.description}`);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.9;
+      utterance.onend = () => {
+        index++;
+        if (index < total) {
+          setTimeout(playNextStep, 1000); // 延迟1秒进入下一步
+        } else {
+          setIsPlaying(false);
+        }
+      };
+      speechSynthesis.speak(utterance);
+    };
+
+    playNextStep();
   };
 
   const renderMyPage = () => (
@@ -401,7 +442,11 @@ const App = () => {
         <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h1>{selectedRecipe.title}</h1>
           <button
-            onClick={() => setSelectedRecipe(null)}
+            onClick={() => {
+              setSelectedRecipe(null);
+              setIsPlaying(false);
+              speechSynthesis.cancel();
+            }}
             style={{
               background: 'none',
               border: 'none',
@@ -426,40 +471,103 @@ const App = () => {
 
         <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
 
-        {/* 模拟视频播放器 */}
+        {/* ===== 替换为 AI 视频模拟播放器 ===== */}
         <div style={{
-          textAlign: 'center',
           marginTop: '1.5rem',
           padding: '1rem',
           background: '#000',
-          color: 'white',
           borderRadius: '8px',
+          color: 'white',
+          position: 'relative',
+          minHeight: '250px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '0.5rem',
+          justifyContent: 'center'
         }}>
-          <img
-            src="https://via.placeholder.com/600x300?text=AI+动漫风+教学视频"
-            alt="AI 视频"
-            style={{ width: '100%', maxWidth: '600px', borderRadius: '6px' }}
-          />
-          <button
-            onClick={() => alert('🎉 正在播放 AI 视频中...')}
-            style={{
-              padding: '0.5rem 1rem',
-              background: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-            }}
-          >
-            🎬 播放 AI 教学视频
-          </button>
-          <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-            动漫风 · {selectedRecipe.duration} · {selectedRecipe.views} 次播放
+          {/* 步骤内容展示 */}
+          {selectedRecipe.steps.map((step, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: idx === currentStepIndex ? 'block' : 'none',
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: '600px'
+              }}
+            >
+              {step.image ? (
+                <img
+                  src={step.image}
+                  alt={`步骤 ${idx + 1}`}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%',
+                  height: '200px',
+                  background: '#333',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem'
+                }}>
+                  📝 {step.description.slice(0, 30)}...
+                </div>
+              )}
+              <p style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
+                第 {idx + 1} 步：{step.description}
+              </p>
+            </div>
+          ))}
+
+          {/* 控制按钮 */}
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => {
+                if (isPlaying) {
+                  setIsPlaying(false);
+                  speechSynthesis.cancel();
+                } else {
+                  startAutoPlay();
+                }
+              }}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: isPlaying ? '#ef4444' : '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频'}
+            </button>
+            <button
+              onClick={() => {
+                const text = `大家好，今天教大家做${selectedRecipe.title}。${selectedRecipe.description}。接下来是详细步骤：`;
+                const stepTexts = selectedRecipe.steps.map((s, i) => `第${i + 1}步：${s.description}`).join('。');
+                const fullText = text + stepTexts;
+                const utterance = new SpeechSynthesisUtterance(fullText);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+              }}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              🔊 试听讲解
+            </button>
+          </div>
+
+          <p style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
+            AI 动漫风 · {selectedRecipe.duration} · 自动配音
           </p>
         </div>
 
