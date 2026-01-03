@@ -24,6 +24,7 @@ interface Recipe {
   likes: number;
   favorites: number;
   comments: Comment[];
+  ingredients: Ingredient[]; // ✅ 新增：食材信息
 }
 
 interface Comment {
@@ -51,8 +52,7 @@ const App = () => {
   const [generating, setGenerating] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
-  // ✅ 关键修改：默认不进入社区/我的页，而是进入首页（带轮播图）
-  const [viewCommunity, setViewCommunity] = useState(false); // ← 改为 false
+  const [viewCommunity, setViewCommunity] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my');
   const [userStats, setUserStats] = useState<UserStats>({
@@ -64,10 +64,10 @@ const App = () => {
   });
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // ===== 轮播图相关 =====
+  // 轮播图相关
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // ===== AI 视频播放逻辑 =====
+  // AI 视频播放逻辑
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -90,6 +90,20 @@ const App = () => {
       }
     }
   }, []);
+
+  // 每次切换到详情页时，从 localStorage 重新加载数据（防止丢失评论）
+  useEffect(() => {
+    if (selectedRecipe && !isPublishing) {
+      const saved = localStorage.getItem('sharedRecipes');
+      if (saved) {
+        const allRecipes = JSON.parse(saved);
+        const updatedRecipe = allRecipes.find(r => r.id === selectedRecipe.id);
+        if (updatedRecipe) {
+          setSelectedRecipe(updatedRecipe);
+        }
+      }
+    }
+  }, [selectedRecipe, isPublishing]);
 
   // 保存到 localStorage
   const saveToStorage = (recipes: Recipe[]) => {
@@ -173,7 +187,8 @@ const App = () => {
       steps: [...steps],
       likes: 0,
       favorites: 0,
-      comments: []
+      comments: [],
+      ingredients: [...ingredients] // ✅ 添加食材
     };
 
     const current = [...sharedRecipes, recipe];
@@ -188,17 +203,16 @@ const App = () => {
 
     alert('🎉 已成功分享到厨友圈！');
     setIsPublishing(false);
-    setViewCommunity(true); // 分享后跳转到社区列表
+    setViewCommunity(true);
     setSelectedRecipe(null);
   };
 
   const backToMain = () => {
     setIsPublishing(false);
-    setViewCommunity(false); // ✅ 返回真正的首页（带轮播图）
+    setViewCommunity(false);
     setSelectedRecipe(null);
     setIsPublished(false);
     setVideoGenerated(false);
-    // 重置表单
     setTitle('');
     setDescription('');
     setCoverImage(null);
@@ -321,17 +335,24 @@ const App = () => {
     }
   }, [sharedRecipes]);
 
-  // 渲染轮播图
+  // 渲染轮播图（全屏填充）
   const renderCarousel = () => {
     if (sharedRecipes.length === 0) return null;
     return (
-      <div style={{ position: 'relative', height: '300px', marginBottom: '1rem' }}>
+      <div style={{ 
+        position: 'relative', 
+        height: '300px', 
+        width: '100%', 
+        marginBottom: '1rem',
+        overflow: 'hidden',
+        borderRadius: '8px'
+      }}>
         <div
           style={{
             display: 'flex',
-            overflow: 'hidden',
-            width: '100%',
+            width: `${sharedRecipes.length * 100}%`,
             height: '100%',
+            transform: `translateX(-${currentSlide * (100 / sharedRecipes.length)}%)`,
             transition: 'transform 0.5s ease-in-out',
           }}
         >
@@ -339,14 +360,11 @@ const App = () => {
             <div
               key={recipe.id}
               style={{
-                flex: 1,
-                width: '100%',
+                width: `${100 / sharedRecipes.length}%`,
                 height: '100%',
                 backgroundImage: `url(${recipe.coverImage})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                opacity: idx === currentSlide ? 1 : 0,
-                pointerEvents: idx === currentSlide ? 'auto' : 'none',
               }}
             />
           ))}
@@ -380,7 +398,6 @@ const App = () => {
     );
   };
 
-  // 渲染首页底部按钮
   const renderHomeButtons = () => (
     <div style={{
       display: 'flex',
@@ -442,7 +459,6 @@ const App = () => {
     </div>
   );
 
-  // 渲染我的主页
   const renderMyPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -552,7 +568,6 @@ const App = () => {
     </div>
   );
 
-  // 渲染社区页
   const renderCommunityPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -618,7 +633,6 @@ const App = () => {
     </div>
   );
 
-  // 渲染菜谱详情页
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
 
@@ -655,6 +669,36 @@ const App = () => {
         )}
 
         <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
+
+        {/* 食材用料 */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>🛒 食材用料</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+            {selectedRecipe.ingredients.map((ing, i) => (
+              <div key={i} style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '6px' }}>
+                <strong>{ing.name}</strong>：{ing.amount} {ing.unit}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 烹饪步骤 */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>🔥 烹饪步骤</h3>
+          {selectedRecipe.steps.map((step, i) => (
+            <div key={i} style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px' }}>
+              <strong>第 {i + 1} 步：</strong>
+              <p>{step.description}</p>
+              {step.image && (
+                <img
+                  src={step.image}
+                  alt={`步骤 ${i + 1}`}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px', marginTop: '0.5rem' }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* AI 视频播放器 */}
         <div style={{
@@ -793,8 +837,8 @@ const App = () => {
             <button
               onClick={() => {
                 const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-                if (input.value) addComment(selectedRecipe.id, input.value);
-                input.value = '';
+                if (input?.value) addComment(selectedRecipe.id, input.value);
+                if (input) input.value = '';
               }}
               style={{
                 padding: '0.5rem',
@@ -830,7 +874,6 @@ const App = () => {
     );
   };
 
-  // 渲染首页（轮播图 + 按钮）
   const renderHomePage = () => (
     <div>
       <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -846,9 +889,8 @@ const App = () => {
     </div>
   );
 
-  // 主渲染逻辑
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
       {selectedRecipe ? (
         renderRecipeDetail()
       ) : isPublishing ? (
@@ -866,6 +908,7 @@ const App = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="例如：番茄炒蛋"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                 />
               </div>
 
@@ -876,12 +919,13 @@ const App = () => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="简单介绍这道菜的特点、口味等"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                 />
               </div>
 
               <div className="form-group">
                 <label>封面图片</label>
-                <input type="file" accept="image/*" onChange={handleCoverChange} />
+                <input type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'block', marginBottom: '0.5rem' }} />
                 {coverImage && (
                   <div style={{ marginTop: '0.5rem' }}>
                     <img
@@ -897,25 +941,25 @@ const App = () => {
                 <label>食材用料</label>
                 <div className="ingredients-list">
                   {ingredients.map((ing, i) => (
-                    <div key={i} className="ingredient-item">
+                    <div key={i} className="ingredient-item" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                       <input
                         type="text"
                         placeholder="食材名"
                         value={ing.name}
                         onChange={(e) => updateIngredient(i, 'name', e.target.value)}
-                        style={{ width: '40%' }}
+                        style={{ flex: 2, padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                       />
                       <input
                         type="text"
                         placeholder="数量"
                         value={ing.amount}
                         onChange={(e) => updateIngredient(i, 'amount', e.target.value)}
-                        style={{ width: '30%' }}
+                        style={{ flex: 1, padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                       />
                       <select
                         value={ing.unit}
                         onChange={(e) => updateIngredient(i, 'unit', e.target.value)}
-                        style={{ width: '30%' }}
+                        style={{ flex: 1, padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                       >
                         <option value="g">克</option>
                         <option value="kg">千克</option>
@@ -928,7 +972,7 @@ const App = () => {
                     </div>
                   ))}
                 </div>
-                <button type="button" className="add-btn" onClick={addIngredient}>
+                <button type="button" className="add-btn" onClick={addIngredient} style={{ padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   + 添加食材
                 </button>
               </div>
@@ -943,14 +987,14 @@ const App = () => {
                         placeholder={`第 ${i + 1} 步`}
                         value={step.description}
                         onChange={(e) => updateStep(i, 'description', e.target.value)}
-                        style={{ marginBottom: '0.5rem' }}
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px', marginBottom: '0.5rem' }}
                       />
                       <div>
                         <input
                           type="file"
                           accept="image/*"
                           onChange={(e) => handleStepImageChange(i, e)}
-                          style={{ fontSize: '0.9rem' }}
+                          style={{ fontSize: '0.9rem', display: 'block', marginBottom: '0.5rem' }}
                         />
                         {step.image && (
                           <div style={{ marginTop: '0.5rem' }}>
@@ -970,7 +1014,7 @@ const App = () => {
                     </div>
                   ))}
                 </div>
-                <button type="button" className="add-btn" onClick={addStep}>
+                <button type="button" className="add-btn" onClick={addStep} style={{ padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   + 添加步骤
                 </button>
               </div>
@@ -978,7 +1022,7 @@ const App = () => {
               <button
                 type="button"
                 onClick={handlePublish}
-                style={{ width: '100%', padding: '0.75rem', fontSize: '1.1rem' }}
+                style={{ width: '100%', padding: '0.75rem', fontSize: '1.1rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '1rem' }}
               >
                 📤 发布菜谱
               </button>
@@ -1017,13 +1061,16 @@ const App = () => {
                   width: '100%',
                   padding: '0.75rem',
                   fontSize: '1.1rem',
+                  background: generating ? '#94a3b8' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: generating ? 'not-allowed' : 'pointer',
                   opacity: generating ? 0.8 : 1,
                 }}
               >
                 {generating ? (
-                  <>
-                    <span className="loading"></span> 生成中...
-                  </>
+                  '🔄 生成中...'
                 ) : (
                   '✨ 一键生成 AI 教学视频'
                 )}
@@ -1035,16 +1082,17 @@ const App = () => {
                   <p><strong>视频风格：</strong>动漫风</p>
                   <p><strong>时长：</strong>1分23秒</p>
                   <p><strong>播放次数：</strong>0</p>
-                  <div style={{ marginTop: '1rem' }}>
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                     <button
                       onClick={() => alert('视频已下载到本地！')}
-                      style={{ marginRight: '0.5rem' }}
+                      style={{ padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       📥 下载视频
                     </button>
                     <button
                       className="secondary"
                       onClick={shareToCommunity}
+                      style={{ padding: '0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       📤 分享到社区
                     </button>
@@ -1063,7 +1111,7 @@ const App = () => {
                   border: 'none',
                   borderRadius: '6px',
                   fontWeight: '600',
-                  marginTop: '2rem'
+                  marginTop: '1rem'
                 }}
               >
                 ← 返回主页
@@ -1072,11 +1120,9 @@ const App = () => {
           )}
         </>
       ) : viewCommunity ? (
-        <div>
-          {currentTab === 'my' ? renderMyPage() : renderCommunityPage()}
-        </div>
+        currentTab === 'my' ? renderMyPage() : renderCommunityPage()
       ) : (
-        renderHomePage() // ✅ 现在默认会进入这里！
+        renderHomePage()
       )}
     </div>
   );
