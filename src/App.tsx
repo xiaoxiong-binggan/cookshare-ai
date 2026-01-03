@@ -51,7 +51,8 @@ const App = () => {
   const [generating, setGenerating] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
-  const [viewCommunity, setViewCommunity] = useState(true); // ✅ 默认进入社区/首页
+  // ✅ 关键修改：默认不进入社区/我的页，而是进入首页（带轮播图）
+  const [viewCommunity, setViewCommunity] = useState(false); // ← 改为 false
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my');
   const [userStats, setUserStats] = useState<UserStats>({
@@ -61,7 +62,7 @@ const App = () => {
     favorites: 0,
     recipes: []
   });
-  const [isPublishing, setIsPublishing] = useState(false); // ✅ 新增：是否在发布流程中
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // ===== 轮播图相关 =====
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -187,13 +188,13 @@ const App = () => {
 
     alert('🎉 已成功分享到厨友圈！');
     setIsPublishing(false);
-    setViewCommunity(true);
+    setViewCommunity(true); // 分享后跳转到社区列表
     setSelectedRecipe(null);
   };
 
   const backToMain = () => {
     setIsPublishing(false);
-    setViewCommunity(true);
+    setViewCommunity(false); // ✅ 返回真正的首页（带轮播图）
     setSelectedRecipe(null);
     setIsPublished(false);
     setVideoGenerated(false);
@@ -1075,7 +1076,7 @@ const App = () => {
           {currentTab === 'my' ? renderMyPage() : renderCommunityPage()}
         </div>
       ) : (
-        renderHomePage()
+        renderHomePage() // ✅ 现在默认会进入这里！
       )}
     </div>
   );
