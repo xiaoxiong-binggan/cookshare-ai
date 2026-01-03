@@ -16,6 +16,7 @@ interface Recipe {
   title: string;
   description: string;
   coverImage: string;
+  cookingVideo: string | null; // ✅ 新增：用户上传的做饭视频
   style: string;
   duration: string;
   views: number;
@@ -48,11 +49,11 @@ const App = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [cookingVideo, setCookingVideo] = useState<string | null>(null); // ✅ 新增状态
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
   const [steps, setSteps] = useState<Step[]>([{ description: '', image: null }]);
   const [isPublished, setIsPublished] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [videoGenerated, setVideoGenerated] = useState(false);
+  // 删除 generating 和 videoGenerated 状态
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
   const [viewCommunity, setViewCommunity] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -69,7 +70,7 @@ const App = () => {
   // 轮播图相关
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // AI 视频播放逻辑
+  // AI 视频播放逻辑（现在已移除，保留是为了兼容）
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [userLiked, setUserLiked] = useState(false);
@@ -144,6 +145,22 @@ const App = () => {
     }
   };
 
+  // ✅ 新增：处理做饭视频上传
+  const handleCookingVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      if (!file.type.startsWith('video/')) {
+        alert('请上传视频文件（如 MP4）');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCookingVideo(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const addIngredient = () => {
     setIngredients([...ingredients, { name: '', amount: '', unit: 'g' }]);
   };
@@ -184,16 +201,10 @@ const App = () => {
       return;
     }
     setIsPublished(true);
-    setVideoGenerated(false);
+    // 不再设置 videoGenerated，直接发布
   };
 
-  const generateVideo = () => {
-    setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setVideoGenerated(true);
-    }, 2000);
-  };
+  // 删除 generateVideo 函数
 
   const shareToCommunity = () => {
     const recipe: Recipe = {
@@ -201,6 +212,7 @@ const App = () => {
       title,
       description,
       coverImage: coverImage || '',
+      cookingVideo: cookingVideo, // ✅ 保存用户上传的视频
       style: '动漫风',
       duration: '1分23秒',
       views: 0,
@@ -220,14 +232,11 @@ const App = () => {
     setUserStats(prev => ({
       ...prev,
       recipes: [...prev.recipes, recipe],
-      likes: prev.likes + 1,
-      favorites: prev.favorites + 1
+      // 删除点赞收藏统计增加
     }));
 
     alert('🎉 已成功分享到厨友圈！');
-    setIsPublishing(false);
-    setViewCommunity(true);
-    setSelectedRecipe(null);
+    backToMain(); // 重置所有状态
   };
 
   const backToMain = () => {
@@ -235,10 +244,10 @@ const App = () => {
     setViewCommunity(false);
     setSelectedRecipe(null);
     setIsPublished(false);
-    setVideoGenerated(false);
     setTitle('');
     setDescription('');
     setCoverImage(null);
+    setCookingVideo(null); // ✅ 清空视频
     setIngredients([{ name: '', amount: '', unit: 'g' }]);
     setSteps([{ description: '', image: null }]);
   };
@@ -338,7 +347,7 @@ const App = () => {
     }
   };
 
-  // 开始自动播放
+  // 开始自动播放（已移除，保留是为了兼容）
   const startAutoPlay = () => {
     if (!selectedRecipe) return;
     
@@ -752,6 +761,17 @@ const App = () => {
           </div>
         )}
 
+        {/* ✅ 显示用户上传的做饭视频 */}
+        {selectedRecipe.cookingVideo && (
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <video
+              src={selectedRecipe.cookingVideo}
+              controls
+              style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }}
+            />
+          </div>
+        )}
+
         <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
 
         {/* 食材用料 */}
@@ -784,94 +804,35 @@ const App = () => {
           ))}
         </div>
 
-        {/* AI 视频播放器 */}
+        {/* AI 视频功能预告 */}
         <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
-          background: '#000',
+          background: '#f0fdf4',
+          border: '1px solid #bbf7d0',
           borderRadius: '8px',
-          color: 'white',
-          position: 'relative',
-          minHeight: '250px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center'
+          textAlign: 'center'
         }}>
-          {selectedRecipe.steps.map((step, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: idx === currentStepIndex ? 'block' : 'none',
-                textAlign: 'center',
-                width: '100%',
-                maxWidth: '600px'
-              }}
-            >
-              {step.image ? (
-                <img
-                  src={step.image}
-                  alt={`步骤 ${idx + 1}`}
-                  style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }}
-                />
-              ) : (
-                <div style={{
-                  width: '100%',
-                  height: '200px',
-                  background: '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem'
-                }}>
-                  📝 {step.description.slice(0, 30)}...
-                </div>
-              )}
-              <p style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
-                第 {idx + 1} 步：{step.description}
-              </p>
-            </div>
-          ))}
-
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={toggleAutoPlay}
-              style={{
-                padding: '0.4rem 0.8rem',
-                background: isPlaying ? '#ef4444' : '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              {isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频'}
-            </button>
-            <button
-              onClick={() => {
-                const text = `大家好，今天教大家做${selectedRecipe.title}。${selectedRecipe.description}。接下来是详细步骤：`;
-                const stepTexts = selectedRecipe.steps.map((s, i) => `第${i + 1}步：${s.description}`).join('。');
-                const fullText = text + stepTexts;
-                const utterance = new SpeechSynthesisUtterance(fullText);
-                utterance.lang = 'zh-CN';
-                utterance.rate = 0.9;
-                speechSynthesis.speak(utterance);
-              }}
-              style={{
-                padding: '0.4rem 0.8rem',
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              🔊 试听讲解
-            </button>
-          </div>
-
-          <p style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
-            AI 动漫风 · {selectedRecipe.duration} · 自动配音
+          <h3>🎬 AI 教学视频（即将上线）</h3>
+          <p style={{ color: '#166534', marginBottom: '0.5rem' }}>
+            点击下方按钮，即可自动生成带语音讲解的动漫风教学视频！
+          </p>
+          <button
+            onClick={() => alert('该功能即将上线！\n我们将接入阿里云官方 AI 视频生成模型，自动将菜谱转为高质量教学视频。')}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ▶ 生成 AI 教学视频（预览）
+          </button>
+          <p style={{ fontSize: '0.85rem', color: '#65a30d', marginTop: '0.5rem' }}>
+            * 基于阿里云 AI 视频生成技术，支持自动配音、步骤动画、风格切换
           </p>
         </div>
 
@@ -1023,6 +984,26 @@ const App = () => {
                 )}
               </div>
 
+              {/* ✅ 新增：做饭视频上传 */}
+              <div className="form-group">
+                <label>做饭过程视频（可选）</label>
+                <input 
+                  type="file" 
+                  accept="video/*" 
+                  onChange={handleCookingVideoChange} 
+                  style={{ display: 'block', marginBottom: '0.5rem' }} 
+                />
+                {cookingVideo && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <video
+                      src={cookingVideo}
+                      controls
+                      style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px' }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="form-group">
                 <label>食材用料</label>
                 <div className="ingredients-list">
@@ -1131,60 +1112,43 @@ const App = () => {
               </button>
             </form>
           ) : (
+            // ✅ 修改：发布后直接显示分享按钮，无需生成视频
             <div>
               <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <h1>味享厨 CookShare</h1>
                 <p>发布菜谱，一键生成 AI 教学视频</p>
               </header>
               <h2>✅ 菜谱已发布！</h2>
-              <p>现在可以生成你的专属 AI 教学视频了。</p>
+              <p>你的菜谱已准备就绪，可以直接分享到社区。</p>
+
+              {/* 提示：AI 视频功能即将上线 */}
+              <div style={{
+                marginTop: '1.5rem',
+                padding: '1rem',
+                background: '#fffbeb',
+                border: '1px solid #fbbf24',
+                borderRadius: '8px',
+                color: '#92400e'
+              }}>
+                <strong>💡 提示：</strong>AI 自动教学视频生成功能正在开发中，后续将接入 <strong>阿里云官方 AI 视频生成模型</strong>，敬请期待！
+              </div>
 
               <button
-                onClick={generateVideo}
-                disabled={generating}
+                onClick={shareToCommunity}
                 style={{
-                  marginTop: '1rem',
+                  marginTop: '1.5rem',
                   width: '100%',
                   padding: '0.75rem',
                   fontSize: '1.1rem',
-                  background: generating ? '#94a3b8' : '#3b82f6',
+                  background: '#10b981',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  cursor: generating ? 'not-allowed' : 'pointer',
-                  opacity: generating ? 0.8 : 1,
+                  cursor: 'pointer'
                 }}
               >
-                {generating ? (
-                  '🔄 生成中...'
-                ) : (
-                  '✨ 一键生成 AI 教学视频'
-                )}
+                📤 立即分享到社区
               </button>
-
-              {videoGenerated && (
-                <div className="video-result" style={{ marginTop: '1.5rem' }}>
-                  <h3>🎉 视频已生成！</h3>
-                  <p><strong>视频风格：</strong>动漫风</p>
-                  <p><strong>时长：</strong>1分23秒</p>
-                  <p><strong>播放次数：</strong>0</p>
-                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => alert('视频已下载到本地！')}
-                      style={{ padding: '0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      📥 下载视频
-                    </button>
-                    <button
-                      className="secondary"
-                      onClick={shareToCommunity}
-                      style={{ padding: '0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      📤 分享到社区
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <button
                 type="button"
@@ -1215,3 +1179,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
