@@ -784,7 +784,7 @@ const App = () => {
           ))}
         </div>
 
-        {/* AI 视频播放器 */}
+        {/* AI 视频播放器 - 优化版本 */}
         <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
@@ -792,47 +792,100 @@ const App = () => {
           borderRadius: '8px',
           color: 'white',
           position: 'relative',
-          minHeight: '250px',
+          minHeight: '300px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {selectedRecipe.steps.map((step, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: idx === currentStepIndex ? 'block' : 'none',
-                textAlign: 'center',
-                width: '100%',
-                maxWidth: '600px'
-              }}
-            >
-              {step.image ? (
-                <img
-                  src={step.image}
-                  alt={`步骤 ${idx + 1}`}
-                  style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }}
-                />
-              ) : (
-                <div style={{
+          {/* 视频容器 */}
+          <div style={{
+            width: '100%',
+            maxWidth: '600px',
+            height: 'auto',
+            position: 'relative',
+            overflow: 'hidden',
+            border: '2px solid #333',
+            borderRadius: '6px',
+            background: '#000',
+          }}>
+            {/* 封面/背景图 */}
+            {selectedRecipe.coverImage && (
+              <img
+                src={selectedRecipe.coverImage}
+                alt="封面"
+                style={{
                   width: '100%',
                   height: '200px',
-                  background: '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem'
-                }}>
-                  📝 {step.description.slice(0, 30)}...
-                </div>
-              )}
-              <p style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
-                第 {idx + 1} 步：{step.description}
-              </p>
-            </div>
-          ))}
+                  objectFit: 'cover',
+                  borderTopLeftRadius: '6px',
+                  borderTopRightRadius: '6px',
+                }}
+              />
+            )}
 
+            {/* 视频内容区 */}
+            <div style={{
+              padding: '1rem',
+              textAlign: 'center',
+              background: '#1a1a1a',
+              color: 'white',
+              minHeight: '150px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {/* 标题 */}
+              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                {selectedRecipe.title}
+              </h2>
+
+              {/* 简介 */}
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', opacity: 0.9, lineHeight: 1.4 }}>
+                {selectedRecipe.description}
+              </p>
+
+              {/* 步骤展示 */}
+              {selectedRecipe.steps.map((step, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: idx === currentStepIndex ? 'block' : 'none',
+                    textAlign: 'center',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <div style={{
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    marginBottom: '0.5rem',
+                  }}>
+                    第 {idx + 1} 步：
+                  </div>
+                  <p style={{ margin: '0', fontSize: '1rem', lineHeight: 1.5 }}>
+                    {step.description}
+                  </p>
+                  {step.image && (
+                    <div style={{ marginTop: '0.5rem', width: '100%', maxHeight: '200px', overflow: 'hidden' }}>
+                      <img
+                        src={step.image}
+                        alt={`步骤 ${idx + 1}`}
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          objectFit: 'contain',
+                          borderRadius: '4px',
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 控制按钮 */}
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
             <button
               onClick={toggleAutoPlay}
@@ -842,34 +895,15 @@ const App = () => {
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontWeight: '500',
               }}
             >
               {isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频'}
             </button>
-            <button
-              onClick={() => {
-                const text = `大家好，今天教大家做${selectedRecipe.title}。${selectedRecipe.description}。接下来是详细步骤：`;
-                const stepTexts = selectedRecipe.steps.map((s, i) => `第${i + 1}步：${s.description}`).join('。');
-                const fullText = text + stepTexts;
-                const utterance = new SpeechSynthesisUtterance(fullText);
-                utterance.lang = 'zh-CN';
-                utterance.rate = 0.9;
-                speechSynthesis.speak(utterance);
-              }}
-              style={{
-                padding: '0.4rem 0.8rem',
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              🔊 试听讲解
-            </button>
           </div>
 
+          {/* 视频信息 */}
           <p style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
             AI 动漫风 · {selectedRecipe.duration} · 自动配音
           </p>
