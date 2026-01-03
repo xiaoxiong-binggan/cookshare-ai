@@ -79,6 +79,14 @@ const App = () => {
   // 用户ID（模拟登录状态）
   const userId = "current_user"; // 模拟当前用户ID
 
+  // === 新增：用于 recipe detail 页面的状态 ===
+  const [detailCurrentSlide, setDetailCurrentSlide] = useState(0);
+  const [detailIsGenerating, setDetailIsGenerating] = useState(false);
+  const [detailGenerationProgress, setDetailGenerationProgress] = useState(0);
+  const [detailPhaseIndex, setDetailPhaseIndex] = useState(0);
+  const [detailIsPlaying, setDetailIsPlaying] = useState(false);
+  const [detailProgressPercent, setDetailProgressPercent] = useState(0);
+
   // 加载本地数据
   useEffect(() => {
     const saved = localStorage.getItem('sharedRecipes');
@@ -717,117 +725,115 @@ const App = () => {
     </div>
   );
 
+  // 语音播报函数（优化语速、音色）
+  const speakStep = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.9; // 更自然的语速
+    utterance.pitch = 1.1; // 提升音调，减少机械感
+    utterance.volume = 1;
+    speechSynthesis.speak(utterance);
+  };
+
+  // 重置播放
+  const resetPlayback = () => {
+    setDetailCurrentSlide(0);
+    setDetailIsPlaying(true);
+    if (selectedRecipe) {
+      speakStep(selectedRecipe.description); // 从简介开始播报
+    }
+  };
+
+  // 开始/暂停播放
+  const togglePlay = () => {
+    setDetailIsPlaying(!detailIsPlaying);
+    if (!detailIsPlaying) {
+      // 从封面页开始播放
+      setDetailCurrentSlide(0);
+      if (selectedRecipe) {
+        speakStep(selectedRecipe.description);
+      }
+    } else {
+      speechSynthesis.cancel();
+    }
+  };
+
+  // 生成视频
+  const generateVideo = () => {
+    setDetailIsGenerating(true);
+    setDetailGenerationProgress(0);
+    setDetailPhaseIndex(0);
+    setTimeout(() => {
+      setDetailIsGenerating(false);
+      setDetailGenerationProgress(100);
+    }, 3000);
+  };
+
+  // 模拟生成过程
+  useEffect(() => {
+    if (detailIsGenerating) {
+      const interval = setInterval(() => {
+        setDetailGenerationProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setDetailIsGenerating(false);
+            return 100;
+          }
+          return prev + 5;
+        });
+      }, 100);
+
+      return () => clearInterval(interval);
+    }
+  }, [detailIsGenerating]);
+
+  useEffect(() => {
+    if (detailIsGenerating && detailGenerationProgress === 100) {
+      setDetailPhaseIndex(prev => prev + 1);
+    }
+  }, [detailGenerationProgress, detailPhaseIndex, detailIsGenerating]);
+
+  // 自动播放逻辑
+  useEffect(() => {
+    if (!detailIsPlaying || !selectedRecipe) return;
+
+    const timer = setTimeout(() => {
+      setDetailCurrentSlide(prev => {
+        const next = prev + 1;
+        if (next >= selectedRecipe.steps.length + 1) { // 包含封面页
+          setDetailIsPlaying(false);
+          return 0;
+        }
+        return next;
+      });
+    }, 3000); // 每步停留3秒
+
+    return () => clearTimeout(timer);
+  }, [detailCurrentSlide, detailIsPlaying, selectedRecipe]);
+
+  // 计算进度百分比
+  useEffect(() => {
+    if (selectedRecipe) {
+      const totalSteps = selectedRecipe.steps.length;
+      setDetailProgressPercent(detailCurrentSlide === 0 ? 0 : ((detailCurrentSlide - 1) / totalSteps) * 100);
+    }
+  }, [detailCurrentSlide, selectedRecipe]);
+
+  // 退出详情页时重置播放状态
+  useEffect(() => {
+    if (!selectedRecipe) {
+      setDetailCurrentSlide(0);
+      setDetailIsPlaying(false);
+      setDetailIsGenerating(false);
+      speechSynthesis.cancel();
+    }
+  }, [selectedRecipe]);
+
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
 
-    // AI视频播放器 - 优化版本
-    const [currentSlide, setCurrentSlide] = useState(0);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [generationProgress, setGenerationProgress] = useState(0);
-    const [generationPhase, setGenerationPhase] = useState<string[]>([
-      '分析菜谱',
-      '生成分镜',
-      '渲染画面'
-    ]);
-    const [phaseIndex, setPhaseIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progressPercent, setProgressPercent] = useState(0);
-
-    // 模拟生成过程
-    useEffect(() => {
-      if (isGenerating) {
-        const interval = setInterval(() => {
-          setGenerationProgress((prev) => {
-            if (prev >= 100) {
-              clearInterval(interval);
-              setIsGenerating(false);
-              return 100;
-            }
-            return prev + 5;
-          });
-        }, 100);
-
-        return () => clearInterval(interval);
-      }
-    }, [isGenerating]);
-
-    useEffect(() => {
-      if (isGenerating && generationProgress === 100) {
-        setPhaseIndex(prev => prev + 1);
-        if (phaseIndex < generationPhase.length - 1) {
-          setTimeout(() => setPhaseIndex(prev => prev + 1), 1000);
-        }
-      }
-    }, [generationProgress, phaseIndex, isGenerating]);
-
-    // 语音播报函数（优化语速、音色）
-    const speakStep = (text: string) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.9; // 更自然的语速
-      utterance.pitch = 1.1; // 提升音调，减少机械感
-      utterance.volume = 1;
-      speechSynthesis.speak(utterance);
-    };
-
-    // 自动播放逻辑
-    useEffect(() => {
-      if (!isPlaying || !selectedRecipe) return;
-
-      const timer = setTimeout(() => {
-        setCurrentSlide(prev => {
-          const next = prev + 1;
-          if (next >= selectedRecipe.steps.length + 1) { // 包含封面页
-            setIsPlaying(false);
-            return 0;
-          }
-          return next;
-        });
-      }, 3000); // 每步停留3秒
-
-      return () => clearTimeout(timer);
-    }, [currentSlide, isPlaying, selectedRecipe]);
-
-    // 计算进度百分比
-    useEffect(() => {
-      if (selectedRecipe) {
-        const totalSteps = selectedRecipe.steps.length;
-        setProgressPercent(currentSlide === 0 ? 0 : ((currentSlide - 1) / totalSteps) * 100);
-      }
-    }, [currentSlide, selectedRecipe]);
-
-    // 重置播放
-    const resetPlayback = () => {
-      setCurrentSlide(0);
-      setIsPlaying(true);
-      speakStep(selectedRecipe.description); // 从简介开始播报
-    };
-
-    // 开始/暂停播放
-    const togglePlay = () => {
-      setIsPlaying(!isPlaying);
-      if (!isPlaying) {
-        // 从封面页开始播放
-        setCurrentSlide(0);
-        speakStep(selectedRecipe.description);
-      } else {
-        speechSynthesis.cancel();
-      }
-    };
-
-    // 生成视频
-    const generateVideo = () => {
-      setIsGenerating(true);
-      setGenerationProgress(0);
-      setPhaseIndex(0);
-      setTimeout(() => {
-        setIsGenerating(false);
-        setGenerationProgress(100);
-      }, 3000);
-    };
-
     // 当前页面内容
-    const currentPage = currentSlide === 0 ? (
+    const currentPage = detailCurrentSlide === 0 ? (
       // 封面页
       <div style={{ textAlign: 'center', padding: '1rem' }}>
         <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
@@ -835,7 +841,7 @@ const App = () => {
         </h2>
         <p style={{ margin: '0 0 1rem 0', fontSize: '1rem', lineHeight: 1.6, opacity: 0.9 }}>
           {selectedRecipe.description.split('. ').map((sentence, idx) => (
-            <span key={idx} style={{ display: 'block', animation: 'fadeInUp 0.5s ease-in-out forwards' }}>
+            <span key={idx} style={{ display: 'block' }}>
               {sentence}.<br />
             </span>
           ))}
@@ -856,15 +862,15 @@ const App = () => {
       // 步骤页
       <div style={{ textAlign: 'center', padding: '1rem' }}>
         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-          第 {currentSlide} 步：
+          第 {detailCurrentSlide} 步：
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '1rem', lineHeight: 1.5 }}>
-          {selectedRecipe.steps[currentSlide - 1].description}
+          {selectedRecipe.steps[detailCurrentSlide - 1].description}
         </p>
-        {selectedRecipe.steps[currentSlide - 1].image && (
+        {selectedRecipe.steps[detailCurrentSlide - 1].image && (
           <img
-            src={selectedRecipe.steps[currentSlide - 1].image!}
-            alt={`步骤 ${currentSlide}`}
+            src={selectedRecipe.steps[detailCurrentSlide - 1].image!}
+            alt={`步骤 ${detailCurrentSlide}`}
             style={{
               width: '100%',
               maxHeight: '200px',
@@ -884,7 +890,7 @@ const App = () => {
           <button
             onClick={() => {
               setSelectedRecipe(null);
-              setIsPlaying(false);
+              setDetailIsPlaying(false);
               speechSynthesis.cancel();
             }}
             style={{
@@ -978,7 +984,6 @@ const App = () => {
               backgroundPosition: 'center',
               opacity: 0.1,
               zIndex: 0,
-              transition: 'opacity 0.5s ease-in-out'
             }} />
 
             {/* 内容区域 */}
@@ -996,18 +1001,13 @@ const App = () => {
               justifyContent: 'center',
             }}>
               {/* 动态内容 */}
-              <div style={{
-                animation: currentSlide === 0 ? 'fadeInUp 0.5s ease-in-out forwards' : 'fadeIn 0.5s ease-in-out forwards',
-                opacity: 0,
-                transform: 'translateY(20px)',
-                transition: 'all 0.5s ease-in-out'
-              }}>
+              <div>
                 {currentPage}
               </div>
             </div>
 
             {/* 生成中状态 */}
-            {isGenerating && (
+            {detailIsGenerating && (
               <div style={{
                 position: 'absolute',
                 top: '50%',
@@ -1021,12 +1021,12 @@ const App = () => {
                 zIndex: 10
               }}>
                 <div style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-                  {generationPhase[phaseIndex]}
+                  {['分析菜谱', '生成分镜', '渲染画面'][detailPhaseIndex]}
                 </div>
                 <div style={{ width: '100%', height: '8px', background: '#374151', borderRadius: '4px', overflow: 'hidden' }}>
                   <div
                     style={{
-                      width: `${generationProgress}%`,
+                      width: `${detailGenerationProgress}%`,
                       height: '100%',
                       background: '#3b82f6',
                       transition: 'width 0.3s ease-in-out'
@@ -1034,13 +1034,13 @@ const App = () => {
                   ></div>
                 </div>
                 <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                  剩余时间：{Math.ceil((100 - generationProgress) / 5)} 秒
+                  剩余时间：{Math.ceil((100 - detailGenerationProgress) / 5)} 秒
                 </div>
               </div>
             )}
 
             {/* 生成完成标签 */}
-            {!isGenerating && generationProgress === 100 && (
+            {!detailIsGenerating && detailGenerationProgress === 100 && (
               <div style={{
                 position: 'absolute',
                 bottom: '1rem',
@@ -1061,7 +1061,7 @@ const App = () => {
               onClick={togglePlay}
               style={{
                 padding: '0.4rem 0.8rem',
-                background: isPlaying ? '#ef4444' : '#10b981',
+                background: detailIsPlaying ? '#ef4444' : '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -1069,7 +1069,7 @@ const App = () => {
                 fontWeight: '500',
               }}
             >
-              {isPlaying ? '⏹ 停止' : '▶ 播放'}
+              {detailIsPlaying ? '⏹ 停止' : '▶ 播放'}
             </button>
             <button
               onClick={resetPlayback}
@@ -1087,7 +1087,7 @@ const App = () => {
             </button>
             <button
               onClick={generateVideo}
-              disabled={isGenerating}
+              disabled={detailIsGenerating}
               style={{
                 padding: '0.4rem 0.8rem',
                 background: '#f59e0b',
@@ -1096,7 +1096,7 @@ const App = () => {
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontWeight: '500',
-                opacity: isGenerating ? 0.7 : 1
+                opacity: detailIsGenerating ? 0.7 : 1
               }}
             >
               🎥 生成视频
@@ -1114,7 +1114,7 @@ const App = () => {
           }}>
             <div
               style={{
-                width: `${progressPercent}%`,
+                width: `${detailProgressPercent}%`,
                 height: '100%',
                 background: '#3b82f6',
                 transition: 'width 0.3s ease-in-out'
