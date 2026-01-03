@@ -74,7 +74,7 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userLiked, setUserLiked] = useState(false);
   const [userFavorited, setUserFavorited] = useState(false);
-  const [autoPlayInterval, setAutoPlayInterval] = useState<NodeJS.Timeout | null>(null);
+  const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null); // 修复：NodeJS.Timeout -> number
 
   // 用户ID（模拟登录状态）
   const userId = "current_user"; // 模拟当前用户ID
@@ -1215,3 +1215,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
