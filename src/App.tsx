@@ -24,9 +24,9 @@ interface Recipe {
   likes: number;
   favorites: number;
   comments: Comment[];
-  ingredients: Ingredient[];
-  likedBy: string[];
-  favoritedBy: string[];
+  ingredients: Ingredient[]; // ✅ 新增：食材信息
+  likedBy: string[]; // 记录点赞用户ID
+  favoritedBy: string[]; // 记录收藏用户ID
 }
 
 interface Comment {
@@ -74,14 +74,10 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userLiked, setUserLiked] = useState(false);
   const [userFavorited, setUserFavorited] = useState(false);
-  const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null);
-  
-  // AI视频状态 - 修复类型错误：确保包含所有可能的状态值
-  const [aiVideoStatus, setAiVideoStatus] = useState<'idle' | 'generating' | 'ready'>('idle');
-  const [aiVideoUrl, setAiVideoUrl] = useState<string | null>(null);
-  
+  const [autoPlayInterval, setAutoPlayInterval] = useState<NodeJS.Timeout | null>(null);
+
   // 用户ID（模拟登录状态）
-  const userId = "current_user";
+  const userId = "current_user"; // 模拟当前用户ID
 
   // 加载本地数据
   useEffect(() => {
@@ -191,19 +187,12 @@ const App = () => {
     setVideoGenerated(false);
   };
 
-  // 模拟AI视频生成
-  const generateAiVideo = () => {
+  const generateVideo = () => {
     setGenerating(true);
-    setAiVideoStatus('generating');
-    
-    // 模拟AI视频生成过程
     setTimeout(() => {
       setGenerating(false);
       setVideoGenerated(true);
-      setAiVideoStatus('ready');
-      // 模拟生成的视频URL
-      setAiVideoUrl(`https://example.com/videos/${Date.now()}.mp4`);
-    }, 5000); // 模拟5秒生成时间
+    }, 2000);
   };
 
   const shareToCommunity = () => {
@@ -220,9 +209,9 @@ const App = () => {
       likes: 0,
       favorites: 0,
       comments: [],
-      ingredients: [...ingredients],
-      likedBy: [],
-      favoritedBy: []
+      ingredients: [...ingredients], // ✅ 添加食材
+      likedBy: [], // 初始化点赞用户列表
+      favoritedBy: [] // 初始化收藏用户列表
     };
 
     const current = [...sharedRecipes, recipe];
@@ -276,7 +265,7 @@ const App = () => {
           return { 
             ...r, 
             likes: r.likes + 1,
-            likedBy: [...r.likedBy, userId]
+            likedBy: [...r.likedBy, userId] // 添加当前用户ID到点赞列表
           };
         }
       }
@@ -291,7 +280,7 @@ const App = () => {
         likes: selectedRecipe.likes + 1,
         likedBy: [...selectedRecipe.likedBy, userId]
       });
-      setUserLiked(true);
+      setUserLiked(true); // 更新本地状态
     }
   };
 
@@ -310,7 +299,7 @@ const App = () => {
           return { 
             ...r, 
             favorites: r.favorites + 1,
-            favoritedBy: [...r.favoritedBy, userId]
+            favoritedBy: [...r.favoritedBy, userId] // 添加当前用户ID到收藏列表
           };
         }
       }
@@ -325,7 +314,7 @@ const App = () => {
         favorites: selectedRecipe.favorites + 1,
         favoritedBy: [...selectedRecipe.favoritedBy, userId]
       });
-      setUserFavorited(true);
+      setUserFavorited(true); // 更新本地状态
     }
   };
 
@@ -363,7 +352,7 @@ const App = () => {
     }
 
     // 创建新的定时器
-    const interval = window.setInterval(() => {
+    const interval = setInterval(() => {
       setCurrentStepIndex(currentIndex);
       
       // 播放当前步骤的语音
@@ -371,7 +360,6 @@ const App = () => {
       const utterance = new SpeechSynthesisUtterance(step.description);
       utterance.lang = 'zh-CN';
       utterance.rate = 0.9;
-      utterance.pitch = 1.1; // 稍微提高音调，听起来更自然
       speechSynthesis.speak(utterance);
 
       currentIndex++;
@@ -810,129 +798,76 @@ const App = () => {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {aiVideoStatus === 'generating' ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>🎬</div>
-              <p>AI正在生成教学视频...</p>
-              <div style={{ 
-                width: '200px', 
-                height: '20px', 
-                background: '#333', 
-                borderRadius: '10px', 
-                marginTop: '1rem',
-                overflow: 'hidden'
-              }}>
-                <div style={{ 
-                  width: '50%', 
-                  height: '100%', 
-                  background: '#10b981', 
-                  borderRadius: '10px',
-                  animation: 'loading 2s infinite'
-                }}></div>
-              </div>
-            </div>
-          ) : aiVideoStatus === 'ready' ? (
-            <div style={{ width: '100%', textAlign: 'center' }}>
-              <video 
-                src={aiVideoUrl || ''} 
-                controls 
-                style={{ width: '100%', maxHeight: '300px', borderRadius: '8px' }}
-              >
-                您的浏览器不支持视频播放
-              </video>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', width: '100%', maxWidth: '600px' }}>
-              {selectedRecipe.steps.map((step, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: idx === currentStepIndex ? 'block' : 'none',
-                    width: '100%'
-                  }}
-                >
-                  {step.image ? (
-                    <img
-                      src={step.image}
-                      alt={`步骤 ${idx + 1}`}
-                      style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: '100%',
-                      height: '200px',
-                      background: '#333',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.2rem'
-                    }}>
-                      📝 {step.description.slice(0, 30)}...
-                    </div>
-                  )}
-                  <p style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
-                    第 {idx + 1} 步：{step.description}
-                  </p>
+          {selectedRecipe.steps.map((step, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: idx === currentStepIndex ? 'block' : 'none',
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: '600px'
+              }}
+            >
+              {step.image ? (
+                <img
+                  src={step.image}
+                  alt={`步骤 ${idx + 1}`}
+                  style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%',
+                  height: '200px',
+                  background: '#333',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem'
+                }}>
+                  📝 {step.description.slice(0, 30)}...
                 </div>
-              ))}
+              )}
+              <p style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
+                第 {idx + 1} 步：{step.description}
+              </p>
             </div>
-          )}
+          ))}
 
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={aiVideoStatus === 'ready' ? undefined : toggleAutoPlay}
-              disabled={aiVideoStatus === 'ready'}
+              onClick={toggleAutoPlay}
               style={{
                 padding: '0.4rem 0.8rem',
-                background: aiVideoStatus === 'ready' ? '#94a3b8' : (isPlaying ? '#ef4444' : '#10b981'),
+                background: isPlaying ? '#ef4444' : '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: aiVideoStatus === 'ready' ? 'not-allowed' : 'pointer'
+                cursor: 'pointer'
               }}
             >
-              {aiVideoStatus === 'ready' ? '🎬 视频已生成' : (isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频')}
+              {isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频'}
             </button>
-            {aiVideoStatus === 'idle' && (
-              <button
-                onClick={() => {
-                  const text = `大家好，今天教大家做${selectedRecipe.title}。${selectedRecipe.description}。接下来是详细步骤：`;
-                  const stepTexts = selectedRecipe.steps.map((s, i) => `第${i + 1}步：${s.description}`).join('。');
-                  const fullText = text + stepTexts;
-                  const utterance = new SpeechSynthesisUtterance(fullText);
-                  utterance.lang = 'zh-CN';
-                  utterance.rate = 0.9;
-                  utterance.pitch = 1.1;
-                  speechSynthesis.speak(utterance);
-                }}
-                style={{
-                  padding: '0.4rem 0.8rem',
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔊 试听讲解
-              </button>
-            )}
-            {aiVideoStatus !== 'generating' && (
-              <button
-                onClick={generateAiVideo}
-                disabled={aiVideoStatus === 'generating'}
-                style={{
-                  padding: '0.4rem 0.8rem',
-                  background: '#8b5cf6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: aiVideoStatus === 'generating' ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {aiVideoStatus === 'generating' ? '生成中...' : '🎬 生成AI视频'}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                const text = `大家好，今天教大家做${selectedRecipe.title}。${selectedRecipe.description}。接下来是详细步骤：`;
+                const stepTexts = selectedRecipe.steps.map((s, i) => `第${i + 1}步：${s.description}`).join('。');
+                const fullText = text + stepTexts;
+                const utterance = new SpeechSynthesisUtterance(fullText);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+              }}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              🔊 试听讲解
+            </button>
           </div>
 
           <p style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
@@ -1205,7 +1140,7 @@ const App = () => {
               <p>现在可以生成你的专属 AI 教学视频了。</p>
 
               <button
-                onClick={generateAiVideo}
+                onClick={generateVideo}
                 disabled={generating}
                 style={{
                   marginTop: '1rem',
@@ -1223,7 +1158,7 @@ const App = () => {
                 {generating ? (
                   '🔄 生成中...'
                 ) : (
-                  '🎬 一键生成 AI 教学视频'
+                  '✨ 一键生成 AI 教学视频'
                 )}
               </button>
 
@@ -1280,6 +1215,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
