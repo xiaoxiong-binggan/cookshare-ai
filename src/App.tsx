@@ -27,6 +27,7 @@ interface Recipe {
   ingredients: Ingredient[];
   likedBy: string[];
   favoritedBy: string[];
+  userVideo: string | null; // 新增：存储用户上传的自制视频
 }
 
 interface Comment {
@@ -48,6 +49,7 @@ const App = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [userVideo, setUserVideo] = useState<string | null>(null); // 新增：用户上传视频状态
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
   const [steps, setSteps] = useState<Step[]>([{ description: '', image: null }]);
   const [isPublished, setIsPublished] = useState(false);
@@ -152,6 +154,22 @@ const App = () => {
     }
   };
 
+  // 新增：处理用户自制视频上传
+  const handleUserVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      if (!file.type.startsWith('video/')) {
+        alert('请上传视频格式文件！');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUserVideo(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const addIngredient = () => {
     setIngredients([...ingredients, { name: '', amount: '', unit: 'g' }]);
   };
@@ -186,13 +204,45 @@ const App = () => {
     }
   };
 
+  // 调整：发布菜谱后直接分享到社区，无需等待生成AI视频
   const handlePublish = () => {
     if (!title.trim() || !description.trim()) {
       alert('请填写菜谱标题和描述');
       return;
     }
+
+    // 发布时直接创建菜谱并保存到社区
+    const recipe: Recipe = {
+      id: Date.now().toString(),
+      title,
+      description,
+      coverImage: coverImage || '',
+      style: '动漫风',
+      duration: '1分23秒',
+      views: 0,
+      createdAt: new Date().toLocaleString('zh-CN'),
+      steps: [...steps],
+      likes: 0,
+      favorites: 0,
+      comments: [],
+      ingredients: [...ingredients],
+      likedBy: [],
+      favoritedBy: [],
+      userVideo: userVideo // 存储用户上传的自制视频
+    };
+
+    const current = [...sharedRecipes, recipe];
+    saveToStorage(current);
+
+    // 修正userStats更新逻辑，仅添加菜谱，不累加点赞收藏
+    setUserStats(prev => ({
+      ...prev,
+      recipes: [...prev.recipes, recipe]
+    }));
+
     setIsPublished(true);
     setVideoGenerated(false);
+    alert('✅ 菜谱已发布，直接同步到厨友圈！');
   };
 
   // 合并后的 generateVideo 函数：支持区分普通生成和详情页生成
@@ -232,7 +282,8 @@ const App = () => {
       comments: [],
       ingredients: [...ingredients],
       likedBy: [],
-      favoritedBy: []
+      favoritedBy: [],
+      userVideo: userVideo
     };
 
     const current = [...sharedRecipes, recipe];
@@ -240,9 +291,7 @@ const App = () => {
 
     setUserStats(prev => ({
       ...prev,
-      recipes: [...prev.recipes, recipe],
-      likes: prev.likes + 1,
-      favorites: prev.favorites + 1
+      recipes: [...prev.recipes, recipe]
     }));
 
     alert('🎉 已成功分享到厨友圈！');
@@ -260,6 +309,7 @@ const App = () => {
     setTitle('');
     setDescription('');
     setCoverImage(null);
+    setUserVideo(null); // 重置用户上传视频
     setIngredients([{ name: '', amount: '', unit: 'g' }]);
     setSteps([{ description: '', image: null }]);
   };
@@ -876,8 +926,10 @@ const App = () => {
       <div className="app-container">
         <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h1>{selectedRecipe.title}</h1>
+          {/* 修复：返回列表按钮，阻止事件冒泡 + 直接重置状态 */}
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation(); // 阻止事件冒泡
               setSelectedRecipe(null);
               setDetailIsPlaying(false);
               speechSynthesis.cancel();
@@ -936,7 +988,25 @@ const App = () => {
           ))}
         </div>
 
-        {/* AI 视频播放器 - 优化版本 */}
+        {/* 新增：用户自制视频展示 */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>📽 发布者实拍视频</h3>
+          {selectedRecipe.userVideo ? (
+            <div>
+              <video controls style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem' }}>
+                <source src={selectedRecipe.userVideo} type="video/mp4" />
+                你的浏览器不支持视频播放
+              </video>
+              <p style={{ fontSize: '0.9rem', color: '#64748b' }}>发布者自制实拍教程，直观展示烹饪过程</p>
+            </div>
+          ) : (
+            <p style={{ color: '#64748b', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+              发布者暂未上传实拍视频
+            </p>
+          )}
+        </div>
+
+        {/* AI 视频播放器 - 优化版本（文案调整） */}
         <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
@@ -1088,7 +1158,7 @@ const App = () => {
                 opacity: detailIsGenerating ? 0.7 : 1
               }}
             >
-              🎥 生成视频
+              🎥 生成AI视频（待开发）
             </button>
           </div>
 
@@ -1111,9 +1181,9 @@ const App = () => {
             ></div>
           </div>
 
-          {/* 视频信息 */}
+          {/* 视频信息：优化文案，添加阿里云API说明 */}
           <p style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: '0.5rem' }}>
-            AI 动漫风 · {selectedRecipe.duration} · 自动配音
+            AI 动漫风 · {selectedRecipe.duration} · 自动配音 | 后续将接入阿里云官方AI视频生成模型，辅助学习烹饪步骤（待开发）
           </p>
         </div>
 
@@ -1265,6 +1335,26 @@ const App = () => {
                 )}
               </div>
 
+              {/* 新增：自制视频上传入口 */}
+              <div className="form-group">
+                <label>上传实拍视频（选填）</label>
+                <input 
+                  type="file" 
+                  accept="video/*" 
+                  onChange={handleUserVideoChange} 
+                  style={{ display: 'block', marginBottom: '0.5rem' }} 
+                />
+                {userVideo && (
+                  <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                    <video controls style={{ maxWidth: '200px', borderRadius: '4px' }}>
+                      <source src={userVideo} type="video/mp4" />
+                      你的浏览器不支持视频播放
+                    </video>
+                  </div>
+                )}
+                <p style={{ fontSize: '0.8rem', color: '#64748b' }}>上传你制作这道菜的实拍视频，将展示在菜谱详情页供他人学习</p>
+              </div>
+
               <div className="form-group">
                 <label>食材用料</label>
                 <div className="ingredients-list">
@@ -1378,8 +1468,8 @@ const App = () => {
                 <h1>味享厨 CookShare</h1>
                 <p>发布菜谱，一键生成 AI 教学视频</p>
               </header>
-              <h2>✅ 菜谱已发布！</h2>
-              <p>现在可以生成你的专属 AI 教学视频了。</p>
+              <h2>✅ 菜谱已发布（已同步到厨友圈）！</h2>
+              <p>现在可以生成你的专属 AI 教学视频（可选操作）。</p>
 
               <button
                 onClick={() => generateVideo(false)}
@@ -1400,13 +1490,13 @@ const App = () => {
                 {generating ? (
                   '🔄 生成中...'
                 ) : (
-                  '✨ 一键生成 AI 教学视频'
+                  '✨ 一键生成 AI 教学视频（待接入阿里云API）'
                 )}
               </button>
 
               {videoGenerated && (
                 <div className="video-result" style={{ marginTop: '1.5rem' }}>
-                  <h3>🎉 视频已生成！</h3>
+                  <h3>🎉 AI 视频已生成！</h3>
                   <p><strong>视频风格：</strong>动漫风</p>
                   <p><strong>时长：</strong>1分23秒</p>
                   <p><strong>播放次数：</strong>0</p>
@@ -1422,7 +1512,7 @@ const App = () => {
                       onClick={shareToCommunity}
                       style={{ padding: '0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                      📤 分享到社区
+                      📤 再次分享到社区
                     </button>
                   </div>
                 </div>
