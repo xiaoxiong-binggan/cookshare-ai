@@ -76,7 +76,7 @@ const App = () => {
   const [userFavorited, setUserFavorited] = useState(false);
   const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null);
   
-  // AI视频状态 - 修复类型错误：添加 'generating' 类型
+  // AI视频状态 - 修复类型错误：确保包含所有可能的状态值
   const [aiVideoStatus, setAiVideoStatus] = useState<'idle' | 'generating' | 'ready'>('idle');
   const [aiVideoUrl, setAiVideoUrl] = useState<string | null>(null);
   
