@@ -62,7 +62,10 @@ const App = () => {
     recipes: []
   });
 
-  // ===== 新增状态：用于模拟视频播放 =====
+  // ===== 新增：轮播图相关 =====
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // ===== AI 视频播放逻辑 =====
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -278,6 +281,150 @@ const App = () => {
     playNextStep();
   };
 
+  const stopAutoPlay = () => {
+    setIsPlaying(false);
+    speechSynthesis.cancel();
+  };
+
+  // ===== 新增：删除作品 =====
+  const deleteRecipe = (id: string) => {
+    if (window.confirm('确定要删除这个菜谱吗？')) {
+      const updated = sharedRecipes.filter(r => r.id !== id);
+      saveToStorage(updated);
+      setUserStats(prev => ({
+        ...prev,
+        recipes: prev.recipes.filter(r => r.id !== id)
+      }));
+      if (selectedRecipe && selectedRecipe.id === id) {
+        setSelectedRecipe(null);
+      }
+      alert('删除成功！');
+    }
+  };
+
+  // ===== 轮播图自动播放逻辑 =====
+  useEffect(() => {
+    if (sharedRecipes.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % sharedRecipes.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [sharedRecipes]);
+
+  // ===== 渲染轮播图 =====
+  const renderCarousel = () => {
+    if (sharedRecipes.length === 0) return null;
+    return (
+      <div style={{ position: 'relative', height: '300px', marginBottom: '1rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            overflow: 'hidden',
+            width: '100%',
+            height: '100%',
+            transition: 'transform 0.5s ease-in-out',
+          }}
+        >
+          {sharedRecipes.map((recipe, idx) => (
+            <div
+              key={recipe.id}
+              style={{
+                flex: 1,
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${recipe.coverImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: idx === currentSlide ? 1 : 0,
+                pointerEvents: idx === currentSlide ? 'auto' : 'none',
+              }}
+            />
+          ))}
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '1rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '0.5rem',
+          }}
+        >
+          {sharedRecipes.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentSlide(idx)}
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: idx === currentSlide ? '#fff' : '#ccc',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ===== 渲染首页底部按钮 =====
+  const renderHomeButtons = () => (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '1rem',
+      marginTop: '2rem',
+      padding: '1rem',
+      backgroundColor: '#f8fafc',
+      borderRadius: '8px',
+    }}>
+      <button
+        onClick={() => setCurrentTab('my')}
+        style={{
+          padding: '0.75rem',
+          background: currentTab === 'my' ? '#3b82f6' : '#e2e8f0',
+          color: currentTab === 'my' ? 'white' : '#334155',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+        }}
+      >
+        我的厨友圈
+      </button>
+      <button
+        onClick={() => setCurrentTab('community')}
+        style={{
+          padding: '0.75rem',
+          background: currentTab === 'community' ? '#3b82f6' : '#e2e8f0',
+          color: currentTab === 'community' ? 'white' : '#334155',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+        }}
+      >
+        厨友社区
+      </button>
+      <button
+        onClick={() => setViewCommunity(false)}
+        style={{
+          padding: '0.75rem',
+          background: '#3b82f6',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+        }}
+      >
+        发布菜谱
+      </button>
+    </div>
+  );
+
+  // ===== 渲染我的主页 =====
   const renderMyPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -346,6 +493,24 @@ const App = () => {
                   <span>{recipe.duration}</span>
                 </div>
               </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteRecipe(recipe.id);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.3rem',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.7rem',
+                  marginTop: '0.5rem',
+                }}
+              >
+                🗑 删除
+              </button>
             </div>
           ))}
         </div>
@@ -369,6 +534,7 @@ const App = () => {
     </div>
   );
 
+  // ===== 渲染社区页 =====
   const renderCommunityPage = () => (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -434,6 +600,7 @@ const App = () => {
     </div>
   );
 
+  // ===== 渲染菜谱详情页 =====
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
 
@@ -471,7 +638,7 @@ const App = () => {
 
         <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
 
-        {/* ===== 替换为 AI 视频模拟播放器 ===== */}
+        {/* AI 视频播放器 */}
         <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
@@ -524,14 +691,7 @@ const App = () => {
           {/* 控制按钮 */}
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={() => {
-                if (isPlaying) {
-                  setIsPlaying(false);
-                  speechSynthesis.cancel();
-                } else {
-                  startAutoPlay();
-                }
-              }}
+              onClick={isPlaying ? stopAutoPlay : startAutoPlay}
               style={{
                 padding: '0.4rem 0.8rem',
                 background: isPlaying ? '#ef4444' : '#10b981',
@@ -653,6 +813,17 @@ const App = () => {
       </div>
     );
   };
+
+  // ===== 渲染首页 =====
+  const renderHomePage = () => (
+    <div>
+      {/* 轮播图 */}
+      {renderCarousel()}
+
+      {/* 底部按钮 */}
+      {renderHomeButtons()}
+    </div>
+  );
 
   return (
     <div className="app-container">
@@ -848,35 +1019,6 @@ const App = () => {
         renderRecipeDetail()
       ) : (
         <div>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
-            <button
-              onClick={() => setCurrentTab('my')}
-              style={{
-                padding: '0.5rem 1rem',
-                background: currentTab === 'my' ? '#3b82f6' : '#f8fafc',
-                color: currentTab === 'my' ? 'white' : '#334155',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              我的主页
-            </button>
-            <button
-              onClick={() => setCurrentTab('community')}
-              style={{
-                padding: '0.5rem 1rem',
-                background: currentTab === 'community' ? '#3b82f6' : '#f8fafc',
-                color: currentTab === 'community' ? 'white' : '#334155',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              厨友社区
-            </button>
-          </div>
-
           {currentTab === 'my' ? renderMyPage() : renderCommunityPage()}
         </div>
       )}
