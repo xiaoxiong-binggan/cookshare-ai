@@ -76,7 +76,7 @@ const App = () => {
     const saved = localStorage.getItem('sharedRecipes');
     if (saved) {
       try {
-        const recipes = JSON.parse(saved);
+        const recipes: Recipe[] = JSON.parse(saved);
         setSharedRecipes(recipes);
         setUserStats({
           followers: 5,
@@ -96,8 +96,8 @@ const App = () => {
     if (selectedRecipe && !isPublishing) {
       const saved = localStorage.getItem('sharedRecipes');
       if (saved) {
-        const allRecipes = JSON.parse(saved);
-        const updatedRecipe = allRecipes.find(r => r.id === selectedRecipe.id);
+        const allRecipes: Recipe[] = JSON.parse(saved);
+        const updatedRecipe = allRecipes.find((r: Recipe) => r.id === selectedRecipe.id);
         if (updatedRecipe) {
           setSelectedRecipe(updatedRecipe);
         }
@@ -228,7 +228,7 @@ const App = () => {
   };
 
   const likeRecipe = (id: string) => {
-    const updated = sharedRecipes.map(r => {
+    const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         return { ...r, likes: r.likes + 1 };
       }
@@ -241,7 +241,7 @@ const App = () => {
   };
 
   const favoriteRecipe = (id: string) => {
-    const updated = sharedRecipes.map(r => {
+    const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         return { ...r, favorites: r.favorites + 1 };
       }
@@ -261,7 +261,7 @@ const App = () => {
       content,
       time: new Date().toLocaleTimeString('zh-CN')
     };
-    const updated = sharedRecipes.map(r => {
+    const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         return { ...r, comments: [...r.comments, comment] };
       }
@@ -312,11 +312,11 @@ const App = () => {
 
   const deleteRecipe = (id: string) => {
     if (window.confirm('确定要删除这个菜谱吗？')) {
-      const updated = sharedRecipes.filter(r => r.id !== id);
+      const updated = sharedRecipes.filter((r: Recipe) => r.id !== id);
       saveToStorage(updated);
       setUserStats(prev => ({
         ...prev,
-        recipes: prev.recipes.filter(r => r.id !== id)
+        recipes: prev.recipes.filter((r: Recipe) => r.id !== id)
       }));
       if (selectedRecipe && selectedRecipe.id === id) {
         setSelectedRecipe(null);
