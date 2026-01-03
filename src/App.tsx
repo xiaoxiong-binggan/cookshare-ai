@@ -863,7 +863,7 @@ const App = () => {
         </p>
         {selectedRecipe.steps[currentSlide - 1].image && (
           <img
-            src={selectedRecipe.steps[currentSlide - 1].image}
+            src={selectedRecipe.steps[currentSlide - 1].image!}
             alt={`步骤 ${currentSlide}`}
             style={{
               width: '100%',
@@ -932,7 +932,7 @@ const App = () => {
               <p>{step.description}</p>
               {step.image && (
                 <img
-                  src={step.image}
+                  src={step.image!}
                   alt={`步骤 ${i + 1}`}
                   style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '6px', marginTop: '0.5rem' }}
                 />
@@ -1268,7 +1268,7 @@ const App = () => {
                 {coverImage && (
                   <div style={{ marginTop: '0.5rem' }}>
                     <img
-                      src={coverImage}
+                      src={coverImage!}
                       alt="封面预览"
                       style={{ maxWidth: '200px', borderRadius: '4px', maxHeight: '150px', objectFit: 'cover' }}
                     />
@@ -1338,7 +1338,7 @@ const App = () => {
                         {step.image && (
                           <div style={{ marginTop: '0.5rem' }}>
                             <img
-                              src={step.image}
+                              src={step.image!}
                               alt={`步骤 ${i + 1} 预览`}
                               style={{
                                 maxWidth: '120px',
