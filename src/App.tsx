@@ -720,6 +720,163 @@ const App = () => {
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
 
+    // AI视频播放器 - 优化版本
+    const [currentSlide, setCurrentSlide] = useState(0);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generationProgress, setGenerationProgress] = useState(0);
+    const [generationPhase, setGenerationPhase] = useState<string[]>([
+      '分析菜谱',
+      '生成分镜',
+      '渲染画面'
+    ]);
+    const [phaseIndex, setPhaseIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [progressPercent, setProgressPercent] = useState(0);
+
+    // 模拟生成过程
+    useEffect(() => {
+      if (isGenerating) {
+        const interval = setInterval(() => {
+          setGenerationProgress((prev) => {
+            if (prev >= 100) {
+              clearInterval(interval);
+              setIsGenerating(false);
+              return 100;
+            }
+            return prev + 5;
+          });
+        }, 100);
+
+        return () => clearInterval(interval);
+      }
+    }, [isGenerating]);
+
+    useEffect(() => {
+      if (isGenerating && generationProgress === 100) {
+        setPhaseIndex(prev => prev + 1);
+        if (phaseIndex < generationPhase.length - 1) {
+          setTimeout(() => setPhaseIndex(prev => prev + 1), 1000);
+        }
+      }
+    }, [generationProgress, phaseIndex, isGenerating]);
+
+    // 语音播报函数（优化语速、音色）
+    const speakStep = (text: string) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.9; // 更自然的语速
+      utterance.pitch = 1.1; // 提升音调，减少机械感
+      utterance.volume = 1;
+      speechSynthesis.speak(utterance);
+    };
+
+    // 自动播放逻辑
+    useEffect(() => {
+      if (!isPlaying || !selectedRecipe) return;
+
+      const timer = setTimeout(() => {
+        setCurrentSlide(prev => {
+          const next = prev + 1;
+          if (next >= selectedRecipe.steps.length + 1) { // 包含封面页
+            setIsPlaying(false);
+            return 0;
+          }
+          return next;
+        });
+      }, 3000); // 每步停留3秒
+
+      return () => clearTimeout(timer);
+    }, [currentSlide, isPlaying, selectedRecipe]);
+
+    // 计算进度百分比
+    useEffect(() => {
+      if (selectedRecipe) {
+        const totalSteps = selectedRecipe.steps.length;
+        setProgressPercent(currentSlide === 0 ? 0 : ((currentSlide - 1) / totalSteps) * 100);
+      }
+    }, [currentSlide, selectedRecipe]);
+
+    // 重置播放
+    const resetPlayback = () => {
+      setCurrentSlide(0);
+      setIsPlaying(true);
+      speakStep(selectedRecipe.description); // 从简介开始播报
+    };
+
+    // 开始/暂停播放
+    const togglePlay = () => {
+      setIsPlaying(!isPlaying);
+      if (!isPlaying) {
+        // 从封面页开始播放
+        setCurrentSlide(0);
+        speakStep(selectedRecipe.description);
+      } else {
+        speechSynthesis.cancel();
+      }
+    };
+
+    // 生成视频
+    const generateVideo = () => {
+      setIsGenerating(true);
+      setGenerationProgress(0);
+      setPhaseIndex(0);
+      setTimeout(() => {
+        setIsGenerating(false);
+        setGenerationProgress(100);
+      }, 3000);
+    };
+
+    // 当前页面内容
+    const currentPage = currentSlide === 0 ? (
+      // 封面页
+      <div style={{ textAlign: 'center', padding: '1rem' }}>
+        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+          {selectedRecipe.title}
+        </h2>
+        <p style={{ margin: '0 0 1rem 0', fontSize: '1rem', lineHeight: 1.6, opacity: 0.9 }}>
+          {selectedRecipe.description.split('. ').map((sentence, idx) => (
+            <span key={idx} style={{ display: 'block', animation: 'fadeInUp 0.5s ease-in-out forwards' }}>
+              {sentence}.<br />
+            </span>
+          ))}
+        </p>
+        <img
+          src={selectedRecipe.coverImage}
+          alt="封面"
+          style={{
+            width: '100%',
+            maxHeight: '200px',
+            objectFit: 'cover',
+            borderRadius: '6px',
+            marginTop: '1rem'
+          }}
+        />
+      </div>
+    ) : (
+      // 步骤页
+      <div style={{ textAlign: 'center', padding: '1rem' }}>
+        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          第 {currentSlide} 步：
+        </div>
+        <p style={{ margin: '0 0 1rem 0', fontSize: '1rem', lineHeight: 1.5 }}>
+          {selectedRecipe.steps[currentSlide - 1].description}
+        </p>
+        {selectedRecipe.steps[currentSlide - 1].image && (
+          <img
+            src={selectedRecipe.steps[currentSlide - 1].image}
+            alt={`步骤 ${currentSlide}`}
+            style={{
+              width: '100%',
+              maxHeight: '200px',
+              objectFit: 'contain',
+              borderRadius: '6px',
+              marginTop: '0.5rem'
+            }}
+          />
+        )}
+      </div>
+    );
+
     return (
       <div className="app-container">
         <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -809,23 +966,25 @@ const App = () => {
             borderRadius: '6px',
             background: '#000',
           }}>
-            {/* 封面/背景图 */}
-            {selectedRecipe.coverImage && (
-              <img
-                src={selectedRecipe.coverImage}
-                alt="封面"
-                style={{
-                  width: '100%',
-                  height: '200px',
-                  objectFit: 'cover',
-                  borderTopLeftRadius: '6px',
-                  borderTopRightRadius: '6px',
-                }}
-              />
-            )}
-
-            {/* 视频内容区 */}
+            {/* 转场动画：背景图覆盖 */}
             <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `url(${selectedRecipe.coverImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.1,
+              zIndex: 0,
+              transition: 'opacity 0.5s ease-in-out'
+            }} />
+
+            {/* 内容区域 */}
+            <div style={{
+              position: 'relative',
+              zIndex: 1,
               padding: '1rem',
               textAlign: 'center',
               background: '#1a1a1a',
@@ -836,59 +995,70 @@ const App = () => {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              {/* 标题 */}
-              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                {selectedRecipe.title}
-              </h2>
-
-              {/* 简介 */}
-              <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', opacity: 0.9, lineHeight: 1.4 }}>
-                {selectedRecipe.description}
-              </p>
-
-              {/* 步骤展示 */}
-              {selectedRecipe.steps.map((step, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: idx === currentStepIndex ? 'block' : 'none',
-                    textAlign: 'center',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div style={{
-                    fontSize: '1.1rem',
-                    fontWeight: '500',
-                    marginBottom: '0.5rem',
-                  }}>
-                    第 {idx + 1} 步：
-                  </div>
-                  <p style={{ margin: '0', fontSize: '1rem', lineHeight: 1.5 }}>
-                    {step.description}
-                  </p>
-                  {step.image && (
-                    <div style={{ marginTop: '0.5rem', width: '100%', maxHeight: '200px', overflow: 'hidden' }}>
-                      <img
-                        src={step.image}
-                        alt={`步骤 ${idx + 1}`}
-                        style={{
-                          width: '100%',
-                          height: 'auto',
-                          objectFit: 'contain',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+              {/* 动态内容 */}
+              <div style={{
+                animation: currentSlide === 0 ? 'fadeInUp 0.5s ease-in-out forwards' : 'fadeIn 0.5s ease-in-out forwards',
+                opacity: 0,
+                transform: 'translateY(20px)',
+                transition: 'all 0.5s ease-in-out'
+              }}>
+                {currentPage}
+              </div>
             </div>
+
+            {/* 生成中状态 */}
+            {isGenerating && (
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(0,0,0,0.9)',
+                padding: '1rem',
+                borderRadius: '8px',
+                textAlign: 'center',
+                color: 'white',
+                zIndex: 10
+              }}>
+                <div style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
+                  {generationPhase[phaseIndex]}
+                </div>
+                <div style={{ width: '100%', height: '8px', background: '#374151', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${generationProgress}%`,
+                      height: '100%',
+                      background: '#3b82f6',
+                      transition: 'width 0.3s ease-in-out'
+                    }}
+                  ></div>
+                </div>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                  剩余时间：{Math.ceil((100 - generationProgress) / 5)} 秒
+                </div>
+              </div>
+            )}
+
+            {/* 生成完成标签 */}
+            {!isGenerating && generationProgress === 100 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '1rem',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '0.8rem',
+                color: '#3b82f6',
+                fontWeight: '500'
+              }}>
+                AI 生成视频 | 动漫风 | 1080P 30帧
+              </div>
+            )}
           </div>
 
-          {/* 控制按钮 */}
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+          {/* 控制栏 */}
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button
-              onClick={toggleAutoPlay}
+              onClick={togglePlay}
               style={{
                 padding: '0.4rem 0.8rem',
                 background: isPlaying ? '#ef4444' : '#10b981',
@@ -899,8 +1069,57 @@ const App = () => {
                 fontWeight: '500',
               }}
             >
-              {isPlaying ? '⏹ 停止' : '▶ 播放 AI 视频'}
+              {isPlaying ? '⏹ 停止' : '▶ 播放'}
             </button>
+            <button
+              onClick={resetPlayback}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '500',
+              }}
+            >
+              🔁 重新播放
+            </button>
+            <button
+              onClick={generateVideo}
+              disabled={isGenerating}
+              style={{
+                padding: '0.4rem 0.8rem',
+                background: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                opacity: isGenerating ? 0.7 : 1
+              }}
+            >
+              🎥 生成视频
+            </button>
+          </div>
+
+          {/* 进度条 */}
+          <div style={{
+            width: '100%',
+            height: '4px',
+            background: '#374151',
+            borderRadius: '2px',
+            marginTop: '0.5rem',
+            overflow: 'hidden'
+          }}>
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                background: '#3b82f6',
+                transition: 'width 0.3s ease-in-out'
+              }}
+            ></div>
           </div>
 
           {/* 视频信息 */}
