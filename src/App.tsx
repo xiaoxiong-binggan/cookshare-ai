@@ -228,6 +228,7 @@ const App = () => {
   };
 
   const likeRecipe = (id: string) => {
+    // 更新全局列表
     const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         return { ...r, likes: r.likes + 1 };
@@ -235,12 +236,15 @@ const App = () => {
       return r;
     });
     saveToStorage(updated);
+    
+    // 同时更新当前选中的菜谱
     if (selectedRecipe && selectedRecipe.id === id) {
       setSelectedRecipe({ ...selectedRecipe, likes: selectedRecipe.likes + 1 });
     }
   };
 
   const favoriteRecipe = (id: string) => {
+    // 更新全局列表
     const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         return { ...r, favorites: r.favorites + 1 };
@@ -248,6 +252,8 @@ const App = () => {
       return r;
     });
     saveToStorage(updated);
+    
+    // 同时更新当前选中的菜谱
     if (selectedRecipe && selectedRecipe.id === id) {
       setSelectedRecipe({ ...selectedRecipe, favorites: selectedRecipe.favorites + 1 });
     }
