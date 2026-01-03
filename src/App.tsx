@@ -24,9 +24,9 @@ interface Recipe {
   likes: number;
   favorites: number;
   comments: Comment[];
-  ingredients: Ingredient[]; // ✅ 新增：食材信息
-  likedBy: string[]; // 记录点赞用户ID
-  favoritedBy: string[]; // 记录收藏用户ID
+  ingredients: Ingredient[];
+  likedBy: string[];
+  favoritedBy: string[];
 }
 
 interface Comment {
@@ -74,10 +74,10 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userLiked, setUserLiked] = useState(false);
   const [userFavorited, setUserFavorited] = useState(false);
-  const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null); // 修复：NodeJS.Timeout -> number
+  const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null);
 
   // 用户ID（模拟登录状态）
-  const userId = "current_user"; // 模拟当前用户ID
+  const userId = "current_user";
 
   // === 新增：用于 recipe detail 页面的状态 ===
   const [detailCurrentSlide, setDetailCurrentSlide] = useState(0);
@@ -195,12 +195,25 @@ const App = () => {
     setVideoGenerated(false);
   };
 
-  const generateVideo = () => {
-    setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setVideoGenerated(true);
-    }, 2000);
+  // 合并后的 generateVideo 函数：支持区分普通生成和详情页生成
+  const generateVideo = (isDetail = false) => {
+    if (isDetail) {
+      // 详情页视频生成逻辑
+      setDetailIsGenerating(true);
+      setDetailGenerationProgress(0);
+      setDetailPhaseIndex(0);
+      setTimeout(() => {
+        setDetailIsGenerating(false);
+        setDetailGenerationProgress(100);
+      }, 3000);
+    } else {
+      // 普通发布后的视频生成逻辑
+      setGenerating(true);
+      setTimeout(() => {
+        setGenerating(false);
+        setVideoGenerated(true);
+      }, 2000);
+    }
   };
 
   const shareToCommunity = () => {
@@ -217,9 +230,9 @@ const App = () => {
       likes: 0,
       favorites: 0,
       comments: [],
-      ingredients: [...ingredients], // ✅ 添加食材
-      likedBy: [], // 初始化点赞用户列表
-      favoritedBy: [] // 初始化收藏用户列表
+      ingredients: [...ingredients],
+      likedBy: [],
+      favoritedBy: []
     };
 
     const current = [...sharedRecipes, recipe];
@@ -259,13 +272,11 @@ const App = () => {
   };
 
   const likeRecipe = (id: string) => {
-    // 检查是否已经点赞
     if (userLiked) {
       alert('您已经点过赞了！');
       return;
     }
 
-    // 更新全局列表
     const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         const alreadyLiked = r.likedBy.includes(userId);
@@ -273,7 +284,7 @@ const App = () => {
           return { 
             ...r, 
             likes: r.likes + 1,
-            likedBy: [...r.likedBy, userId] // 添加当前用户ID到点赞列表
+            likedBy: [...r.likedBy, userId]
           };
         }
       }
@@ -281,25 +292,22 @@ const App = () => {
     });
     saveToStorage(updated);
     
-    // 同时更新当前选中的菜谱
     if (selectedRecipe && selectedRecipe.id === id) {
       setSelectedRecipe({ 
         ...selectedRecipe, 
         likes: selectedRecipe.likes + 1,
         likedBy: [...selectedRecipe.likedBy, userId]
       });
-      setUserLiked(true); // 更新本地状态
+      setUserLiked(true);
     }
   };
 
   const favoriteRecipe = (id: string) => {
-    // 检查是否已经收藏
     if (userFavorited) {
       alert('您已经收藏过了！');
       return;
     }
 
-    // 更新全局列表
     const updated = sharedRecipes.map((r: Recipe) => {
       if (r.id === id) {
         const alreadyFavorited = r.favoritedBy.includes(userId);
@@ -307,7 +315,7 @@ const App = () => {
           return { 
             ...r, 
             favorites: r.favorites + 1,
-            favoritedBy: [...r.favoritedBy, userId] // 添加当前用户ID到收藏列表
+            favoritedBy: [...r.favoritedBy, userId]
           };
         }
       }
@@ -315,14 +323,13 @@ const App = () => {
     });
     saveToStorage(updated);
     
-    // 同时更新当前选中的菜谱
     if (selectedRecipe && selectedRecipe.id === id) {
       setSelectedRecipe({ 
         ...selectedRecipe, 
         favorites: selectedRecipe.favorites + 1,
         favoritedBy: [...selectedRecipe.favoritedBy, userId]
       });
-      setUserFavorited(true); // 更新本地状态
+      setUserFavorited(true);
     }
   };
 
@@ -354,16 +361,13 @@ const App = () => {
     let currentIndex = 0;
     const totalSteps = selectedRecipe.steps.length;
 
-    // 清除之前的定时器
     if (autoPlayInterval) {
       clearInterval(autoPlayInterval);
     }
 
-    // 创建新的定时器
     const interval = setInterval(() => {
       setCurrentStepIndex(currentIndex);
       
-      // 播放当前步骤的语音
       const step = selectedRecipe.steps[currentIndex];
       const utterance = new SpeechSynthesisUtterance(step.description);
       utterance.lang = 'zh-CN';
@@ -372,13 +376,12 @@ const App = () => {
 
       currentIndex++;
       
-      // 如果到达最后一个步骤，停止播放
       if (currentIndex >= totalSteps) {
         clearInterval(interval);
         setIsPlaying(false);
         setAutoPlayInterval(null);
       }
-    }, 3000); // 每3秒切换到下一步
+    }, 3000);
 
     setAutoPlayInterval(interval);
   };
@@ -729,8 +732,8 @@ const App = () => {
   const speakStep = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.9; // 更自然的语速
-    utterance.pitch = 1.1; // 提升音调，减少机械感
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
     utterance.volume = 1;
     speechSynthesis.speak(utterance);
   };
@@ -740,7 +743,7 @@ const App = () => {
     setDetailCurrentSlide(0);
     setDetailIsPlaying(true);
     if (selectedRecipe) {
-      speakStep(selectedRecipe.description); // 从简介开始播报
+      speakStep(selectedRecipe.description);
     }
   };
 
@@ -748,7 +751,6 @@ const App = () => {
   const togglePlay = () => {
     setDetailIsPlaying(!detailIsPlaying);
     if (!detailIsPlaying) {
-      // 从封面页开始播放
       setDetailCurrentSlide(0);
       if (selectedRecipe) {
         speakStep(selectedRecipe.description);
@@ -756,17 +758,6 @@ const App = () => {
     } else {
       speechSynthesis.cancel();
     }
-  };
-
-  // 生成视频
-  const generateVideo = () => {
-    setDetailIsGenerating(true);
-    setDetailGenerationProgress(0);
-    setDetailPhaseIndex(0);
-    setTimeout(() => {
-      setDetailIsGenerating(false);
-      setDetailGenerationProgress(100);
-    }, 3000);
   };
 
   // 模拟生成过程
@@ -800,13 +791,13 @@ const App = () => {
     const timer = setTimeout(() => {
       setDetailCurrentSlide(prev => {
         const next = prev + 1;
-        if (next >= selectedRecipe.steps.length + 1) { // 包含封面页
+        if (next >= selectedRecipe.steps.length + 1) {
           setDetailIsPlaying(false);
           return 0;
         }
         return next;
       });
-    }, 3000); // 每步停留3秒
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [detailCurrentSlide, detailIsPlaying, selectedRecipe]);
@@ -834,7 +825,6 @@ const App = () => {
 
     // 当前页面内容
     const currentPage = detailCurrentSlide === 0 ? (
-      // 封面页
       <div style={{ textAlign: 'center', padding: '1rem' }}>
         <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
           {selectedRecipe.title}
@@ -859,7 +849,6 @@ const App = () => {
         />
       </div>
     ) : (
-      // 步骤页
       <div style={{ textAlign: 'center', padding: '1rem' }}>
         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
           第 {detailCurrentSlide} 步：
@@ -1086,7 +1075,7 @@ const App = () => {
               🔁 重新播放
             </button>
             <button
-              onClick={generateVideo}
+              onClick={() => generateVideo(true)}
               disabled={detailIsGenerating}
               style={{
                 padding: '0.4rem 0.8rem',
@@ -1393,7 +1382,7 @@ const App = () => {
               <p>现在可以生成你的专属 AI 教学视频了。</p>
 
               <button
-                onClick={generateVideo}
+                onClick={() => generateVideo(false)}
                 disabled={generating}
                 style={{
                   marginTop: '1rem',
@@ -1468,6 +1457,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
