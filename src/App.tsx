@@ -74,7 +74,7 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userLiked, setUserLiked] = useState(false);
   const [userFavorited, setUserFavorited] = useState(false);
-  const [autoPlayInterval, setAutoPlayInterval] = useState<NodeJS.Timeout | null>(null);
+  const [autoPlayInterval, setAutoPlayInterval] = useState<number | null>(null);
   
   // AI视频状态
   const [aiVideoStatus, setAiVideoStatus] = useState<'idle' | 'generating' | 'ready'>('idle');
@@ -363,7 +363,7 @@ const App = () => {
     }
 
     // 创建新的定时器
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       setCurrentStepIndex(currentIndex);
       
       // 播放当前步骤的语音
