@@ -145,7 +145,7 @@ const App = () => {
     }
   };
 
-  // ✅ 新增：处理做饭视频上传
+  // ✅ 修复：处理做饭视频上传
   const handleCookingVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
