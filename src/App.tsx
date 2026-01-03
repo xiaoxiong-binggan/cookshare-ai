@@ -21,33 +21,72 @@ interface Recipe {
   views: number;
   createdAt: string;
   steps: Step[];
+  likes: number;
+  favorites: number;
+  comments: Comment[];
+}
+
+interface Comment {
+  id: string;
+  user: string;
+  content: string;
+  time: string;
+}
+
+interface UserStats {
+  followers: number;
+  following: number;
+  likes: number;
+  favorites: number;
+  recipes: Recipe[];
 }
 
 const App = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
+  const [ingredientss, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', unit: 'g' }]);
   const [steps, setSteps] = useState<Step[]>([{ description: '', image: null }]);
   const [isPublished, setIsPublished] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [sharedRecipes, setSharedRecipes] = useState<Recipe[]>([]);
   const [viewCommunity, setViewCommunity] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null); // 新增：选中的菜谱
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [currentTab, setCurrentTab] = useState<'my' | 'community'>('my'); // 我的 / 社区
+  const [userStats, setUserStats] = useState<UserStats>({
+    followers: 0,
+    following: 0,
+    likes: 0,
+    favorites: 0,
+    recipes: []
+  });
 
-  // 加载已分享的菜谱
+  // 加载本地数据
   useEffect(() => {
     const saved = localStorage.getItem('sharedRecipes');
     if (saved) {
       try {
-        setSharedRecipes(JSON.parse(saved));
+        const recipes = JSON.parse(saved);
+        setSharedRecipes(recipes);
+        setUserStats({
+          followers: 5,
+          following: 3,
+          likes: 12,
+          favorites: 8,
+          recipes: recipes
+        });
       } catch (e) {
         console.error('Failed to parse shared recipes', e);
-        localStorage.removeItem('sharedRecipes');
       }
     }
   }, []);
+
+  // 保存到 localStorage
+  const saveToStorage = (recipes: Recipe[]) => {
+    localStorage.setItem('sharedRecipes', JSON.stringify(recipes));
+    setSharedRecipes(recipes);
+  };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -122,17 +161,25 @@ const App = () => {
       duration: '1分23秒',
       views: 0,
       createdAt: new Date().toLocaleString('zh-CN'),
-      steps: [...steps], // 包含步骤图片
+      steps: [...steps],
+      likes: 0,
+      favorites: 0,
+      comments: []
     };
 
-    const current = JSON.parse(localStorage.getItem('sharedRecipes') || '[]');
-    const updated = [...current, recipe];
-    localStorage.setItem('sharedRecipes', JSON.stringify(updated));
+    const current = [...sharedRecipes, recipe];
+    saveToStorage(current);
 
-    setSharedRecipes(updated);
+    setUserStats(prev => ({
+      ...prev,
+      recipes: [...prev.recipes, recipe],
+      likes: prev.likes + 1,
+      favorites: prev.favorites + 1
+    }));
+
     alert('🎉 已成功分享到厨友圈！');
     setViewCommunity(true);
-    setSelectedRecipe(null); // 返回列表
+    setSelectedRecipe(null);
   };
 
   const backToMain = () => {
@@ -142,6 +189,361 @@ const App = () => {
 
   const viewRecipeDetail = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
+  };
+
+  const likeRecipe = (id: string) => {
+    const updated = sharedRecipes.map(r => {
+      if (r.id === id) {
+        return { ...r, likes: r.likes + 1 };
+      }
+      return r;
+    });
+    saveToStorage(updated);
+    if (selectedRecipe && selectedRecipe.id === id) {
+      setSelectedRecipe({ ...selectedRecipe, likes: selectedRecipe.likes + 1 });
+    }
+  };
+
+  const favoriteRecipe = (id: string) => {
+    const updated = sharedRecipes.map(r => {
+      if (r.id === id) {
+        return { ...r, favorites: r.favorites + 1 };
+      }
+      return r;
+    });
+    saveToStorage(updated);
+    if (selectedRecipe && selectedRecipe.id === id) {
+      setSelectedRecipe({ ...selectedRecipe, favorites: selectedRecipe.favorites + 1 });
+    }
+  };
+
+  const addComment = (id: string, content: string) => {
+    if (!content.trim()) return;
+    const comment: Comment = {
+      id: Date.now().toString(),
+      user: '我',
+      content,
+      time: new Date().toLocaleTimeString('zh-CN')
+    };
+    const updated = sharedRecipes.map(r => {
+      if (r.id === id) {
+        return { ...r, comments: [...r.comments, comment] };
+      }
+      return r;
+    });
+    saveToStorage(updated);
+    if (selectedRecipe && selectedRecipe.id === id) {
+      setSelectedRecipe({ ...selectedRecipe, comments: [...selectedRecipe.comments, comment] });
+    }
+  };
+
+  const renderMyPage = () => (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <h2>👤 我的主页</h2>
+        <p>欢迎回来！这里是你的个人空间</p>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginBottom: '2rem'
+      }}>
+        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', color: '#3b82f6' }}>{userStats.followers}</div>
+          <div>粉丝</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', color: '#3b82f6' }}>{userStats.following}</div>
+          <div>关注</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', color: '#3b82f6' }}>{userStats.likes}</div>
+          <div>点赞</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', color: '#3b82f6' }}>{userStats.favorites}</div>
+          <div>收藏</div>
+        </div>
+      </div>
+
+      <h3>✨ 我的作品</h3>
+      {userStats.recipes.length === 0 ? (
+        <p>暂无作品，快去发布吧！</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+          {userStats.recipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              onClick={() => viewRecipeDetail(recipe)}
+              style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'transform 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              {recipe.coverImage && (
+                <img
+                  src={recipe.coverImage}
+                  alt="封面"
+                  style={{ width: '100%', height: '150px', objectFit: 'cover' }}
+                />
+              )}
+              <div style={{ padding: '0.75rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{recipe.title}</h4>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#64748b' }}>
+                  {recipe.description.slice(0, 50)}...
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                  <span>{recipe.style}</span>
+                  <span>{recipe.duration}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={backToMain}
+        style={{
+          width: '100%',
+          padding: '0.75rem',
+          backgroundColor: '#f1f5f9',
+          color: '#334155',
+          border: 'none',
+          borderRadius: '6px',
+          fontWeight: '600',
+          marginTop: '2rem'
+        }}
+      >
+        ← 返回主页
+      </button>
+    </div>
+  );
+
+  const renderCommunityPage = () => (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <h2>🌍 厨友社区</h2>
+        <p>发现更多美味菜谱</p>
+      </div>
+
+      {sharedRecipes.length === 0 ? (
+        <p style={{ textAlign: 'center', color: '#64748b' }}>暂无菜谱，快去发布吧！</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+          {sharedRecipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              onClick={() => viewRecipeDetail(recipe)}
+              style={{
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'transform 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              {recipe.coverImage && (
+                <img
+                  src={recipe.coverImage}
+                  alt="封面"
+                  style={{ width: '100%', height: '150px', objectFit: 'cover' }}
+                />
+              )}
+              <div style={{ padding: '0.75rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{recipe.title}</h4>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#64748b' }}>
+                  {recipe.description.slice(0, 50)}...
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                  <span>{recipe.style}</span>
+                  <span>{recipe.duration}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={backToMain}
+        style={{
+          width: '100%',
+          padding: '0.75rem',
+          backgroundColor: '#f1f5f9',
+          color: '#334155',
+          border: 'none',
+          borderRadius: '6px',
+          fontWeight: '600',
+          marginTop: '2rem'
+        }}
+      >
+        ← 返回主页
+      </button>
+    </div>
+  );
+
+  const renderRecipeDetail = () => {
+    if (!selectedRecipe) return null;
+
+    return (
+      <div className="app-container">
+        <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <h1>{selectedRecipe.title}</h1>
+          <button
+            onClick={() => setSelectedRecipe(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#3b82f6',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            ← 返回列表
+          </button>
+        </header>
+
+        {selectedRecipe.coverImage && (
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <img
+              src={selectedRecipe.coverImage}
+              alt="封面"
+              style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }}
+            />
+          </div>
+        )}
+
+        <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
+
+        {/* 模拟视频播放器 */}
+        <div style={{
+          textAlign: 'center',
+          marginTop: '1.5rem',
+          padding: '1rem',
+          background: '#000',
+          color: 'white',
+          borderRadius: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}>
+          <img
+            src="https://via.placeholder.com/600x300?text=AI+动漫风+教学视频"
+            alt="AI 视频"
+            style={{ width: '100%', maxWidth: '600px', borderRadius: '6px' }}
+          />
+          <button
+            onClick={() => alert('🎉 正在播放 AI 视频中...')}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
+            🎬 播放 AI 教学视频
+          </button>
+          <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+            动漫风 · {selectedRecipe.duration} · {selectedRecipe.views} 次播放
+          </p>
+        </div>
+
+        {/* 互动区 */}
+        <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={() => likeRecipe(selectedRecipe.id)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            ❤️ 点赞 ({selectedRecipe.likes})
+          </button>
+          <button
+            onClick={() => favoriteRecipe(selectedRecipe.id)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            ⭐ 收藏 ({selectedRecipe.favorites})
+          </button>
+        </div>
+
+        {/* 评论区 */}
+        <div style={{ marginTop: '2rem' }}>
+          <h3>💬 评论</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input
+              type="text"
+              placeholder="写下你的评论..."
+              style={{ flex: 1, padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  addComment(selectedRecipe.id, e.currentTarget.value);
+                  e.currentTarget.value = '';
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+                if (input.value) addComment(selectedRecipe.id, input.value);
+                input.value = '';
+              }}
+              style={{
+                padding: '0.5rem',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              发送
+            </button>
+          </div>
+
+          <div style={{ marginTop: '1rem' }}>
+            {selectedRecipe.comments.length === 0 ? (
+              <p style={{ color: '#64748b' }}>暂无评论</p>
+            ) : (
+              selectedRecipe.comments.map(comment => (
+                <div key={comment.id} style={{ marginBottom: '0.5rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '6px' }}>
+                  <strong>{comment.user}</strong> • {comment.time}
+                  <p>{comment.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <footer style={{ textAlign: 'center', marginTop: '2rem', color: '#64748b', fontSize: '0.9rem' }}>
+          <p>© 2026 味享厨 CookShare</p>
+        </footer>
+      </div>
+    );
   };
 
   return (
@@ -335,130 +737,39 @@ const App = () => {
           </footer>
         </>
       ) : selectedRecipe ? (
-        /* 菜谱详情页 */
-        <div className="app-container">
-          <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <h1>{selectedRecipe.title}</h1>
+        renderRecipeDetail()
+      ) : (
+        <div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
             <button
-              onClick={() => setSelectedRecipe(null)}
+              onClick={() => setCurrentTab('my')}
               style={{
-                background: 'none',
+                padding: '0.5rem 1rem',
+                background: currentTab === 'my' ? '#3b82f6' : '#f8fafc',
+                color: currentTab === 'my' ? 'white' : '#334155',
                 border: 'none',
-                color: '#3b82f6',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
               }}
             >
-              ← 返回列表
+              我的主页
             </button>
-          </header>
+            <button
+              onClick={() => setCurrentTab('community')}
+              style={{
+                padding: '0.5rem 1rem',
+                background: currentTab === 'community' ? '#3b82f6' : '#f8fafc',
+                color: currentTab === 'community' ? 'white' : '#334155',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              厨友社区
+            </button>
+          </div>
 
-          {selectedRecipe.coverImage && (
-            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-              <img
-                src={selectedRecipe.coverImage}
-                alt="封面"
-                style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px' }}
-              />
-            </div>
-          )}
-
-          <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>{selectedRecipe.description}</p>
-
-          <h3>📝 烹饪步骤</h3>
-          {selectedRecipe.steps.length === 0 ? (
-            <p>暂无步骤</p>
-          ) : (
-            <div style={{ marginTop: '1rem' }}>
-              {selectedRecipe.steps.map((step, i) => (
-                <div key={i} style={{ marginBottom: '1.5rem' }}>
-                  <p>
-                    <strong>第 {i + 1} 步：</strong> {step.description || '（无描述）'}
-                  </p>
-                  {step.image && (
-                    <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                      <img
-                        src={step.image}
-                        alt={`步骤 ${i + 1}`}
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: '200px',
-                          borderRadius: '6px',
-                          border: '1px solid #e2e8f0'
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <footer style={{ textAlign: 'center', marginTop: '2rem', color: '#64748b', fontSize: '0.9rem' }}>
-            <p>© 2026 味享厨 CookShare</p>
-          </footer>
-        </div>
-      ) : (
-        /* 社区列表页 */
-        <div className="app-container">
-          <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <h1>✨ 我的厨友圈</h1>
-            <p>点击菜谱查看详情</p>
-          </header>
-
-          {sharedRecipes.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-              <p>暂无分享内容</p>
-              <p>快去生成视频并分享吧！</p>
-            </div>
-          ) : (
-            <div>
-              {sharedRecipes.map((recipe) => (
-                <div
-                  key={recipe.id}
-                  onClick={() => viewRecipeDetail(recipe)}
-                  style={{
-                    marginBottom: '1.2rem',
-                    padding: '1rem',
-                    background: 'white',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    cursor: 'pointer',
-                    transition: 'box-shadow 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = 'none')}
-                >
-                  <h3>{recipe.title}</h3>
-                  <p>{recipe.description}</p>
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b' }}>
-                    <span>🎨 {recipe.style}</span>
-                    <span>⏱️ {recipe.duration}</span>
-                    <span>👁️ {recipe.views} 次播放</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={backToMain}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              backgroundColor: '#f1f5f9',
-              color: '#334155',
-              border: 'none',
-              borderRadius: '6px',
-              fontWeight: '600',
-            }}
-          >
-            ← 返回主页
-          </button>
-
-          <footer style={{ textAlign: 'center', marginTop: '2rem', color: '#64748b', fontSize: '0.9rem' }}>
-            <p>© 2026 味享厨 CookShare · 天池大赛作品</p>
-          </footer>
+          {currentTab === 'my' ? renderMyPage() : renderCommunityPage()}
         </div>
       )}
     </div>
